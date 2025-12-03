@@ -1,0 +1,105 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "./generated"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Capture {
+  id              String   @id @default(uuid())
+  userId          String
+  type            String   // SCREENSHOT, TEXT, VIDEO
+  content         String   // Text content or URL
+  source          String?  // App name (e.g., "Twitter")
+  status          String   @default("PENDING") // PENDING, PROCESSED, FAILED
+  metadata        String?  // JSON string for extra info
+  
+  // AI Processing Fields
+  aiProcessed     Boolean  @default(false)
+  extractedText   String?  // OCR or transcription result
+  entities        String?  // JSON: extracted entities (people, places, concepts)
+  sentiment       String?  // POSITIVE, NEUTRAL, NEGATIVE
+  importanceScore Float?   // 0.0 - 1.0 ranking for essential space
+  
+  // OCR Processing Fields
+  ocrStatus       String   @default("PENDING") // PENDING, PROCESSING, COMPLETED, FAILED
+  processingError String?  // Error message if OCR/AI processing fails
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([userId])
+  @@index([userId, importanceScore])
+  @@index([ocrStatus])
+}
+
+model ScreenshotMetadata {
+  id              String   @id @default(uuid())
+  captureId       String   @unique
+  ocrText         String?  // Full OCR extracted text
+  detectedApp     String?  // App detected from screenshot
+  detectedUrl     String?  // URL detected in screenshot
+  hasText         Boolean  @default(false)
+  hasImage        Boolean  @default(false)
+  hasCode         Boolean  @default(false)
+  dominantColors  String?  // JSON array of hex colors
+  width           Int?
+  height          Int?
+  fileSize        Int?     // Bytes
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([captureId])
+}
+
+model ExtractedContent {
+  id          String   @id @default(uuid())
+  captureId   String
+  contentType String   // LINK, CODE, QUOTE, CONCEPT, TASK
+  content     String
+  context     String?  // Surrounding text for context
+  position    Int?     // Position in original content
+  metadata    String?  // JSON: additional extracted info
+  createdAt   DateTime @default(now())
+
+  @@index([captureId])
+  @@index([contentType])
+}
+
+model ContentRanking {
+  id                String   @id @default(uuid())
+  captureId         String   @unique
+  userId            String
+  relevanceScore    Float    @default(0.5) // 0.0 - 1.0
+  recencyScore      Float    @default(1.0) // Decays over time
+  engagementScore   Float    @default(0.0) // Based on user interactions
+  finalScore        Float    @default(0.5) // Weighted combination
+  isEssential       Boolean  @default(false)
+  isPinned          Boolean  @default(false)
+  isArchived        Boolean  @default(false)
+  lastAccessedAt    DateTime?
+  accessCount       Int      @default(0)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@index([userId, finalScore])
+  @@index([userId, isEssential])
+}
+
+model ScreenUsageLog {
+  id          String   @id @default(uuid())
+  userId      String
+  appName     String   // e.g., "Instagram", "Twitter", "VSCode"
+  category    String?  // SOCIAL_MEDIA, PRODUCTIVITY, ENTERTAINMENT
+  duration    Int      // Seconds
+  timestamp   DateTime @default(now())
+  metadata    String?  // JSON: additional context (scroll distance, interactions)
+  createdAt   DateTime @default(now())
+
+  @@index([userId, timestamp])
+  @@index([userId, appName])
+  @@index([timestamp])
+}

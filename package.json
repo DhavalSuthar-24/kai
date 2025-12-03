@@ -1,0 +1,15 @@
+{
+    "name": "kai-zen",
+    "workspaces": [
+        "packages/*",
+        "services/*"
+    ],
+    "scripts": {
+        "lint": "bun run lint:auth && bun run lint:content && bun run lint:learning && bun run lint:gamification && bun run lint:notification",
+        "lint:auth": "cd services/auth-service && tsc --noEmit",
+        "lint:content": "cd services/content-service && tsc --noEmit",
+        "lint:learning": "cd services/learning-service && tsc --noEmit",
+        "lint:gamification": "cd services/gamification-service && tsc --noEmit",
+        "lint:notification": "cd services/notification-service && tsc --noEmit"
+    }
+}

@@ -1,0 +1,152 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated"
+  engineType = "client"
+  runtime = "bun"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model UserProgress {
+  id        String   @id @default(uuid())
+  userId    String   @unique
+  points    Int      @default(0)
+  level     Int      @default(1)
+  streak    Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model DailyActivity {
+  id        String   @id @default(uuid())
+  userId    String
+  date      DateTime @default(now()) // Should be normalized to start of day
+  points    Int      @default(0)
+  actions   Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, date]) // Ensure one record per user per day
+}
+
+model Achievement {
+  id          String   @id @default(uuid())
+  name        String
+  description String
+  points      Int
+  createdAt   DateTime @default(now())
+  
+  userAchievements UserAchievement[]
+}
+
+model UserAchievement {
+  id            String   @id @default(uuid())
+  userId        String
+  achievementId String
+  unlockedAt    DateTime @default(now())
+
+  achievement   Achievement @relation(fields: [achievementId], references: [id])
+  
+  @@unique([userId, achievementId])
+}
+
+model BehaviorMetric {
+  id                String   @id @default(uuid())
+  userId            String
+  date              DateTime @default(now())
+  metricType        String   // SCREEN_TIME, APP_OPENS, FOCUS_TIME, DISTRACTION_COUNT
+  value             Float
+  appName           String?
+  context           String?  // JSON: additional context
+  createdAt         DateTime @default(now())
+
+  @@index([userId, date])
+  @@index([userId, metricType])
+}
+
+model InterventionSuccess {
+  id                String   @id @default(uuid())
+  userId            String
+  ruleId            String   // Reference to InterventionRule
+  triggeredAt       DateTime @default(now())
+  wasSuccessful     Boolean  @default(false)
+  userAction        String?  // ACCEPTED, DISMISSED, IGNORED
+  timeToAction      Int?     // Seconds until user responded
+  contextBefore     String?  // JSON: state before intervention
+  contextAfter      String?  // JSON: state after intervention
+  createdAt         DateTime @default(now())
+
+  @@index([userId])
+  @@index([ruleId])
+  @@index([userId, triggeredAt])
+  @@index([createdAt])
+}
+
+model Challenge {
+  id            String   @id @default(uuid())
+  creatorId     String
+  title         String
+  description   String
+  type          String   // FLASHCARDS, FOCUS_TIME, STREAK, POINTS
+  target        Int      // Target value (e.g., 30 flashcards)
+  startDate     DateTime
+  endDate       DateTime
+  status        String   @default("ACTIVE") // ACTIVE, COMPLETED, EXPIRED
+  isPublic      Boolean  @default(false)
+  createdAt     DateTime @default(now())
+  
+  participants  ChallengeParticipant[]
+
+  @@index([creatorId])
+  @@index([status])
+  @@index([endDate])
+}
+
+model ChallengeParticipant {
+  id            String   @id @default(uuid())
+  challengeId   String
+  userId        String
+  progress      Int      @default(0)
+  completed     Boolean  @default(false)
+  joinedAt      DateTime @default(now())
+  completedAt   DateTime?
+
+  challenge     Challenge @relation(fields: [challengeId], references: [id])
+  
+  @@unique([challengeId, userId])
+  @@index([userId])
+  @@index([challengeId])
+}
+
+model SocialShare {
+  id            String   @id @default(uuid())
+  userId        String
+  type          String   // ACHIEVEMENT, STREAK, CHALLENGE, LEADERBOARD
+  content       String   // JSON metadata
+  imageUrl      String   // Generated image path
+  shareCount    Int      @default(0)
+  createdAt     DateTime @default(now())
+  
+  @@index([userId])
+  @@index([type])
+  @@index([createdAt])
+}
+
+model DoomscrollEvent {
+  id                String   @id @default(uuid())
+  userId            String
+  appName           String
+  startedAt         DateTime
+  endedAt           DateTime?
+  duration          Int?     // Minutes
+  scrollDistance    Float?   // Estimated pixels scrolled
+  itemsViewed       Int?     // Estimated content items
+  interventionId    String?  // If intervention was triggered
+  wasInterrupted    Boolean  @default(false)
+  createdAt         DateTime @default(now())
+
+  @@index([userId])
+  @@index([userId, startedAt])
+}

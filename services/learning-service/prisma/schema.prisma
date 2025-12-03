@@ -1,0 +1,205 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "./generated"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Topic {
+  id        String   @id @default(uuid())
+  name      String
+  userId    String
+  parentId  String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Syllabus {
+  id        String   @id @default(uuid())
+  topicId   String
+  content   String   // JSON structure of the syllabus
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Flashcard {
+  id        String   @id @default(uuid())
+  topicId   String
+  front     String
+  back      String
+  nextReview DateTime
+  interval  Int
+  easeFactor Float
+  difficulty String  @default("NORMAL") // EASY, NORMAL, HARD
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model InterventionRule {
+  id              String   @id @default(uuid())
+  userId          String
+  name            String
+  description     String?
+  triggerType     String   // TIME_BASED, APP_BASED, BEHAVIOR_BASED
+  triggerCondition String  // JSON: condition definition
+  actionType      String   // REDIRECT, NOTIFY, BLOCK, SUGGEST
+  actionTarget    String   // URL, app, or content to redirect to
+  priority        Int      @default(0)
+  isActive        Boolean  @default(true)
+  timesTriggered  Int      @default(0)
+  successRate     Float?   // Percentage of successful interventions
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([userId])
+  @@index([userId, isActive])
+}
+
+model KaizenSession {
+  id              String   @id @default(uuid())
+  userId          String
+  goalId          String?  // Reference to UserGoal
+  sessionType     String   // FOCUS, LEARNING, REFLECTION, REVIEW
+  startedAt       DateTime @default(now())
+  endedAt         DateTime?
+  duration        Int?     // Minutes
+  activitiesCount Int      @default(0)
+  capturesCount   Int      @default(0)
+  flashcardsCount Int      @default(0)
+  productivityScore Float? // 0.0 - 1.0
+  notes           String?
+  mood            String?  // ENERGIZED, FOCUSED, TIRED, DISTRACTED
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([userId])
+  @@index([userId, startedAt])
+}
+
+model MemoryInsight {
+  id              String   @id @default(uuid())
+  userId          String
+  title           String
+  description     String
+  memoryType      String   // MILESTONE, STREAK, LEARNING_BURST, TOPIC_MASTERY, TIME_CAPSULE
+  relatedIds      String   // JSON: IDs of related captures, topics, flashcards
+  thumbnailUrl    String?
+  startDate       DateTime
+  endDate         DateTime?
+  metrics         String?  // JSON: stats like "50 flashcards reviewed"
+  sentiment       String   @default("POSITIVE") // POSITIVE, NEUTRAL, NOSTALGIC
+  isViewed        Boolean  @default(false)
+  viewedAt        DateTime?
+  createdAt       DateTime @default(now())
+
+  @@index([userId])
+  @@index([userId, createdAt])
+  @@index([userId, isViewed])
+}
+
+model ScreenTimePattern {
+  id                String   @id @default(uuid())
+  userId            String
+  date              DateTime // Normalized to start of day
+  appName           String
+  totalMinutes      Int      @default(0)
+  sessionCount      Int      @default(0)
+  longestSession    Int      @default(0) // Minutes
+  isDoomscroll      Boolean  @default(false)
+  scrollVelocity    Float?   // Average scroll speed
+  interactionRate   Float?   // Clicks/swipes per minute
+  timeOfDay         String?  // MORNING, AFTERNOON, EVENING, NIGHT
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@unique([userId, date, appName])
+  @@index([userId, date])
+  @@index([userId, isDoomscroll])
+}
+
+model Intervention {
+  id              String   @id @default(uuid())
+  userId          String
+  triggerReason   String   // DOOMSCROLL_DETECTED, IDLE_TIME, MANUAL
+  detectedApp     String   // App where doomscrolling was detected
+  status          String   @default("PENDING") // PENDING, ACCEPTED, DISMISSED, EXPIRED
+  contentType     String?  // FLASHCARD, TOPIC, CAPTURE, ARTICLE
+  contentId       String?  // ID of the suggested content
+  contentPreview  String?  // Short preview of the content
+  triggeredAt     DateTime @default(now())
+  respondedAt     DateTime?
+  expiresAt       DateTime // Auto-expire after 5 minutes
+  metadata        String?  // JSON: additional context
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([userId, status])
+  @@index([userId, triggeredAt])
+  @@index([status, expiresAt])
+}
+
+model EssentialSpaceItem {
+  id          String   @id @default(uuid())
+  userId      String
+  itemType    String   // FLASHCARD, GOAL, CAPTURE, MEMORY, STREAK, ACHIEVEMENT
+  itemId      String?  // Reference to the actual item
+  title       String
+  description String?
+  priority    String   // URGENT, IMPORTANT, NICE_TO_HAVE
+  score       Float    // Calculated priority score
+  metadata    String?  // JSON: additional context
+  shownAt     DateTime @default(now())
+  createdAt   DateTime @default(now())
+
+  @@index([userId, shownAt])
+  @@index([userId, itemType])
+}
+
+model EssentialSpaceFeedback {
+  id          String   @id @default(uuid())
+  userId      String
+  itemId      String   // Reference to EssentialSpaceItem
+  itemType    String   // Same as EssentialSpaceItem.itemType
+  rating      Int      // 1-5 stars
+  feedback    String?  // Optional text feedback
+  createdAt   DateTime @default(now())
+
+  @@index([userId])
+  @@index([itemType])
+  @@index([userId, createdAt])
+}
+
+model FocusSession {
+  id              String   @id @default(uuid())
+  userId          String
+  duration        Int      // Planned duration in minutes
+  actualDuration  Int?     // Actual duration completed in minutes
+  topic           String?  // What they're focusing on
+  allowedApps     String   // JSON array of allowed apps
+  blockedApps     String   // JSON array of blocked apps
+  status          String   @default("ACTIVE") // ACTIVE, COMPLETED, ABANDONED
+  startedAt       DateTime @default(now())
+  endedAt         DateTime?
+  interruptions   Int      @default(0)
+  pomodoroCount   Int      @default(0) // Number of pomodoros completed
+  createdAt       DateTime @default(now())
+
+  @@index([userId])
+  @@index([userId, status])
+  @@index([startedAt])
+}
+
+model FocusInterruption {
+  id              String   @id @default(uuid())
+  sessionId       String
+  appName         String   // App that was accessed
+  timestamp       DateTime @default(now())
+  handled         Boolean  @default(false) // Did user return to focus?
+  createdAt       DateTime @default(now())
+
+  @@index([sessionId])
+  @@index([timestamp])
+}

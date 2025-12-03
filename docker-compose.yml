@@ -1,0 +1,136 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_MULTIPLE_DATABASES: auth_db,content_db,learning_db,gamification_db,notification_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./scripts/create-multiple-postgresql-databases.sh:/docker-entrypoint-initdb.d/create-multiple-postgresql-databases.sh
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U postgres" ]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.3.0
+    container_name: zookeeper
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    ports:
+      - "2181:2181"
+
+  kafka:
+    image: confluentinc/cp-kafka:7.3.0
+    container_name: kafka
+    ports:
+      - "9092:9092"
+    depends_on:
+      - zookeeper
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+
+  redis:
+    image: redis:alpine
+    container_name: redis
+    ports:
+      - "6379:6379"
+  # Services run locally
+  # auth-service:
+  #   build:
+  #     context: .
+  #     dockerfile: services/auth-service/Dockerfile
+  #   container_name: auth-service
+  #   ports:
+  #     - "3001:3001"
+  #   environment:
+  #     - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/auth_db?schema=public
+  #     - JWT_SECRET=super-secret-key
+  #     - KAFKA_BROKERS=kafka:29092
+  #   depends_on:
+  #     postgres:
+  #       condition: service_healthy
+  #     kafka:
+  #       condition: service_started
+
+  # content-service:
+  #   build:
+  #     context: .
+  #     dockerfile: services/content-service/Dockerfile
+  #   container_name: content-service
+  #   ports:
+  #     - "3002:3002"
+  #   environment:
+  #     - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/content_db?schema=public
+  #     - KAFKA_BROKERS=kafka:29092
+  #   depends_on:
+  #     postgres:
+  #       condition: service_healthy
+  #     kafka:
+  #       condition: service_started
+
+  # learning-service:
+  #   build:
+  #     context: .
+  #     dockerfile: services/learning-service/Dockerfile
+  #   container_name: learning-service
+  #   ports:
+  #     - "3003:3003"
+  #   environment:
+  #     - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/learning_db?schema=public
+  #     - KAFKA_BROKERS=kafka:29092
+  #     - GEMINI_API_KEY=${GEMINI_API_KEY}
+  #   depends_on:
+  #     postgres:
+  #       condition: service_healthy
+  #     kafka:
+  #       condition: service_started
+
+  # gamification-service:
+  #   build:
+  #     context: .
+  #     dockerfile: services/gamification-service/Dockerfile
+  #   container_name: gamification-service
+  #   ports:
+  #     - "3004:3004"
+  #   environment:
+  #     - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/gamification_db?schema=public
+  #     - KAFKA_BROKERS=kafka:29092
+  #   depends_on:
+  #     postgres:
+  #       condition: service_healthy
+  #     kafka:
+  #       condition: service_started
+
+  # notification-service:
+  #   build:
+  #     context: .
+  #     dockerfile: services/notification-service/Dockerfile
+  #   container_name: notification-service
+  #   ports:
+  #     - "3005:3005"
+  #   environment:
+  #     - KAFKA_BROKERS=kafka:29092
+  #     - REDIS_HOST=redis
+  #     - REDIS_PORT=6379
+  #   depends_on:
+  #     kafka:
+  #       condition: service_started
+  #     redis:
+  #       condition: service_started
+
+volumes:
+  postgres_data:

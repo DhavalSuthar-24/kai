@@ -1,0 +1,110 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "./generated"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// User notification preferences - granular control per notification type
+model NotificationPreference {
+  id                     String   @id @default(uuid())
+  userId                 String   @unique
+  
+  // Notification type preferences
+  kaizenReminders        Boolean  @default(true)  // Due flashcard reminders
+  doomscrollInterventions Boolean @default(true)  // Doomscroll alerts
+  memoryOfDay            Boolean  @default(true)  // Daily memory insights
+  friendChallenges       Boolean  @default(true)  // Friend activity updates
+  weeklyInsights         Boolean  @default(true)  // Weekly summary emails
+  
+  // Channel preferences
+  emailEnabled           Boolean  @default(true)  // Global email toggle
+  pushEnabled            Boolean  @default(true)  // Global push toggle
+  
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
+  
+  @@index([userId])
+}
+
+// Audit trail of all notifications sent
+model NotificationHistory {
+  id            String    @id @default(uuid())
+  userId        String
+  type          String    // NotificationType enum
+  channel       String    // EMAIL or PUSH
+  status        String    @default("PENDING") // PENDING, SENT, FAILED, BOUNCED
+  templateId    String?   // Reference to template used
+  subject       String?   // Email subject or push title
+  body          String?   // Email body or push message
+  metadata      String?   // JSON with template variables and other data
+  
+  sentAt        DateTime?
+  readAt        DateTime?
+  failureReason String?
+  
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  
+  @@index([userId])
+  @@index([status])
+  @@index([sentAt])
+  @@index([userId, type])
+}
+
+// Admin-managed notification templates
+model NotificationTemplate {
+  id           String   @id @default(uuid())
+  name         String   @unique  // Unique identifier (e.g., "welcome_email")
+  type         String   // NotificationType enum
+  channel      String   // EMAIL or PUSH
+  subject      String?  // Email subject (for emails only)
+  bodyTemplate String   // Template with placeholders (e.g., {{userName}})
+  variables    String   // JSON array of required variable names
+  isActive     Boolean  @default(true)
+  version      Int      @default(1)
+  
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  
+  @@index([type])
+  @@index([channel])
+  @@index([isActive])
+}
+
+// Retry queue for failed notification deliveries
+model NotificationQueue {
+  id              String    @id @default(uuid())
+  notificationId  String    // Reference to NotificationHistory
+  retryCount      Int       @default(0)
+  maxRetries      Int       @default(5)
+  nextRetryAt     DateTime  // Timestamp for next retry (exponential backoff)
+  lastError       String?   // Error message from last attempt
+  status          String    @default("PENDING") // PENDING, RETRYING, FAILED, SUCCEEDED
+  
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  
+  @@index([status])
+  @@index([nextRetryAt])
+  @@index([notificationId])
+}
+
+// Device tokens for push notifications (FCM)
+model DeviceToken {
+  id        String   @id @default(uuid())
+  userId    String
+  token     String   @unique  // FCM device token
+  platform  String   // android, ios, web
+  isActive  Boolean  @default(true)
+  lastUsed  DateTime @default(now())
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@index([userId])
+  @@index([userId, isActive])
+}
