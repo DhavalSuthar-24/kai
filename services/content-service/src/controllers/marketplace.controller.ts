@@ -1,6 +1,7 @@
 import { type Request, type Response } from 'express';
 import { MarketplaceService } from '../services/marketplace.service';
-import { errorResponse } from '@shared/index.ts';
+import { errorResponse, type AuthRequest } from '@shared/index.ts';
+
 
 export class MarketplaceController {
     private service: MarketplaceService;
@@ -9,9 +10,9 @@ export class MarketplaceController {
         this.service = new MarketplaceService();
     }
 
-    publish = async (req: Request, res: Response) => {
+    publish = async (req: AuthRequest, res: Response) => {
         try {
-            const userId = (req as any).user.id;
+            const userId = req.user!.id;
             const { name, description, topics, content } = req.body;
             
             const result = await this.service.publishStudyPack({
@@ -24,10 +25,14 @@ export class MarketplaceController {
         }
     };
 
-    purchase = async (req: Request, res: Response) => {
+    purchase = async (req: AuthRequest, res: Response) => {
         try {
-            const userId = (req as any).user.id;
-            const { packId } = req.params;
+            const userId = req.user!.id;
+            const packId = req.params.packId;
+            
+            if (!packId) {
+                return res.status(400).json(errorResponse('Pack ID is required'));
+            }
             
             const result = await this.service.purchasePack(userId, packId);
             
@@ -37,9 +42,9 @@ export class MarketplaceController {
         }
     };
 
-    getFeed = async (req: Request, res: Response) => {
+    getFeed = async (req: AuthRequest, res: Response) => {
         try {
-            const userId = (req as any).user.id;
+            const userId = req.user!.id;
             const filters = req.query;
             
             const result = await this.service.getFeed(userId, filters);

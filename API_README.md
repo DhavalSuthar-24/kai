@@ -11,6 +11,7 @@ This document provides a comprehensive reference for the Kai microservices API, 
 | Learning Service | `http://localhost:3003` | 3003 |
 | Gamification Service | `http://localhost:3004` | 3004 |
 | Notification Service | `http://localhost:3005` | 3005 |
+| AI Service | `http://localhost:8000` | 8000 |
 
 ## Authentication
 
@@ -1198,6 +1199,211 @@ Authorization: Bearer <your-token>
     "message": "Friend removed"
   }
   ```
+
+---
+
+## 6. AI Service
+
+### Retention Prediction
+
+#### Predict Retention
+- **Endpoint**: `POST /api/v1/retention/predict`
+- **Description**: Predict retention probability for a flashcard.
+- **Request Body**:
+  ```json
+  {
+    "userId": "user-uuid",
+    "flashcardId": "flashcard-uuid",
+    "reviewHistory": [
+      {"quality": 4, "interval": 1, "timestamp": "2023-10-27T10:00:00Z"}
+    ]
+  }
+  ```
+- **Response**:
+  ```json
+  {
+    "retentionProbability": 0.85,
+    "recommendedInterval": 3,
+    "confidence": 0.92
+  }
+  ```
+
+#### Optimize Schedule
+- **Endpoint**: `POST /api/v1/retention/optimize-schedule`
+- **Description**: Optimize review schedule for maximum retention.
+- **Request Body**:
+  ```json
+  {
+    "userId": "user-uuid",
+    "flashcards": ["id1", "id2", "id3"]
+  }
+  ```
+- **Response**:
+  ```json
+  {
+    "optimizedSchedule": [
+      {"flashcardId": "id1", "nextReview": "2023-10-28T10:00:00Z"},
+      {"flashcardId": "id2", "nextReview": "2023-10-29T10:00:00Z"}
+    ]
+  }
+  ```
+
+### Curriculum Generation
+
+#### Generate Curriculum
+- **Endpoint**: `POST /api/v1/curriculum/generate`
+- **Description**: Generate AI-powered curriculum from topics.
+- **Request Body**:
+  ```json
+  {
+    "subject": "Machine Learning",
+    "examType": "GENERAL",
+    "topics": ["Neural Networks", "Deep Learning", "NLP"]
+  }
+  ```
+- **Response**:
+  ```json
+  {
+    "curriculumId": "curriculum-uuid",
+    "modules": [
+      {
+        "name": "Introduction to Neural Networks",
+        "topics": [...],
+        "estimatedHours": 10,
+        "bloomsLevel": "understand"
+      }
+    ]
+  }
+  ```
+
+### Document Processing
+
+#### Process Document
+- **Endpoint**: `POST /api/v1/document/process`
+- **Description**: Process uploaded document and extract learning content.
+- **Request Body**:
+  ```json
+  {
+    "documentId": "doc-uuid",
+    "extractFlashcards": true,
+    "extractQuestions": true
+  }
+  ```
+- **Response**:
+  ```json
+  {
+    "structure": {...},
+    "topics": ["Topic 1", "Topic 2"],
+    "flashcards": [{"front": "Q?", "back": "A"}],
+    "questions": [{"question": "...", "options": [...]}],
+    "readingTime": 15,
+    "difficultyScore": 0.7
+  }
+  ```
+
+### RAG (Retrieval-Augmented Generation)
+
+#### Query with RAG
+- **Endpoint**: `POST /api/v1/rag/query`
+- **Description**: Query documents using RAG for context-aware responses.
+- **Request Body**:
+  ```json
+  {
+    "query": "What is backpropagation?",
+    "documentIds": ["doc1", "doc2"],
+    "topK": 3
+  }
+  ```
+- **Response**:
+  ```json
+  {
+    "answer": "Backpropagation is...",
+    "sources": [
+      {"documentId": "doc1", "chunk": "...", "similarity": 0.92}
+    ]
+  }
+  ```
+
+#### Generate Embeddings
+- **Endpoint**: `POST /api/v1/rag/embed`
+- **Description**: Generate vector embeddings for text.
+- **Request Body**:
+  ```json
+  {
+    "text": "Machine learning is a subset of AI"
+  }
+  ```
+- **Response**:
+  ```json
+  {
+    "embedding": [0.123, -0.456, ...],
+    "dimension": 384
+  }
+  ```
+
+### Content Analysis
+
+#### Analyze Content
+- **Endpoint**: `POST /api/v1/content/analyze`
+- **Description**: Analyze content quality and extract insights.
+- **Request Body**:
+  ```json
+  {
+    "content": "Text content to analyze..."
+  }
+  ```
+- **Response**:
+  ```json
+  {
+    "qualityScore": 0.85,
+    "sentiment": "POSITIVE",
+    "entities": ["Machine Learning", "AI"],
+    "keywords": ["learning", "algorithm"],
+    "category": "TECHNICAL"
+  }
+  ```
+
+### Psychological Profiling
+
+#### Detect Learning Style
+- **Endpoint**: `POST /api/v1/psych/learning-style`
+- **Description**: Detect user's learning style from behavior.
+- **Request Body**:
+  ```json
+  {
+    "userId": "user-uuid",
+    "behaviorData": {...}
+  }
+  ```
+- **Response**:
+  ```json
+  {
+    "learningStyle": "VISUAL",
+    "confidence": 0.78,
+    "recommendations": ["Use diagrams", "Watch videos"]
+  }
+  ```
+
+#### Assess Burnout Risk
+- **Endpoint**: `POST /api/v1/psych/burnout-risk`
+- **Description**: Assess user's burnout risk.
+- **Request Body**:
+  ```json
+  {
+    "userId": "user-uuid",
+    "activityData": {...}
+  }
+  ```
+- **Response**:
+  ```json
+  {
+    "burnoutRisk": "MODERATE",
+    "score": 0.65,
+    "recommendations": ["Take breaks", "Reduce session length"]
+  }
+  ```
+
+---
 
 ## 5. Notification Service
 

@@ -7,7 +7,7 @@ const router: Router = Router();
 
 router.use(authMiddleware);
 
-router.get('/', getNotifications as any);
+router.get('/', getNotifications);
 
 router.post(
   '/schedule',
@@ -18,11 +18,11 @@ router.post(
       subject: z.string().optional(),
       body: z.string(),
       scheduledFor: z.string().datetime(),
-      data: z.record(z.any()).optional(),
+      data: z.record(z.string(), z.any()).optional(),
       phoneNumber: z.string().optional(),
     })
-  ) as any,
-  scheduleNotification as any
+  ),
+  scheduleNotification
 );
 
 export default router;

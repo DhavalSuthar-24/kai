@@ -32,6 +32,7 @@ graph TB
         Learning[Learning Service :3003]
         Gamification[Gamification Service :3004]
         Notification[Notification Service :3005]
+        AI[AI Service :8000]
     end
     
     subgraph Infrastructure
@@ -44,11 +45,13 @@ graph TB
     Client --> Content
     Client --> Learning
     Client --> Gamification
+    Client --> AI
     
     Auth --> Kafka
     Content --> Kafka
     Learning --> Kafka
     Gamification --> Kafka
+    AI --> Kafka
     
     Auth --> Postgres
     Content --> Postgres
@@ -56,14 +59,17 @@ graph TB
     Gamification --> Postgres
     
     Kafka --> Notification
+    Kafka --> AI
     Notification --> Redis
+    AI --> Redis
 ```
 
 ### Design Principles
 
 - **Event-Driven**: Asynchronous communication via Kafka for loose coupling
 - **Database Per Service**: Each microservice owns its data (auth_db, content_db, learning_db, gamification_db)
-- **Technology Stack**: Bun runtime, TypeScript, Express, Prisma ORM, PostgreSQL
+- **Polyglot Architecture**: TypeScript/Bun for core services, Python/FastAPI for AI/ML workloads
+- **Technology Stack**: Bun runtime, TypeScript, Express, Prisma ORM, PostgreSQL, Python, PyTorch
 - **Scalability**: Horizontal scaling with containerized services
 - **Resilience**: Graceful error handling, Kafka retry mechanisms
 
@@ -855,46 +861,6 @@ model DeviceToken {
   updatedAt DateTime @updatedAt
 }
 ```
-  updatedAt     DateTime  @updatedAt
-}
-
-model NotificationTemplate {
-  id           String   @id @default(uuid())
-  name         String   @unique
-  type         String
-  channel      String
-  subject      String?
-  bodyTemplate String
-  variables    String
-  isActive     Boolean  @default(true)
-  version      Int      @default(1)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-}
-
-model NotificationQueue {
-  id              String    @id @default(uuid())
-  notificationId  String
-  retryCount      Int       @default(0)
-  maxRetries      Int       @default(5)
-  nextRetryAt     DateTime
-  lastError       String?
-  status          String    @default("PENDING")
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
-}
-
-model DeviceToken {
-  id        String   @id @default(uuid())
-  userId    String
-  token     String   @unique
-  platform  String
-  isActive  Boolean  @default(true)
-  lastUsed  DateTime @default(now())
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-}
-```
 
 #### Features Implemented
 
@@ -941,6 +907,68 @@ model DeviceToken {
 - **USER_CREATED**: Queues welcome email
 - **FLASHCARD_DUE**: Queues push notification with due count
 - **STREAK_WARNING**: Queues push notification with streak count
+
+---
+
+### 6. AI Service (Port 8000)
+
+**Purpose**: Machine learning and AI processing for retention prediction, curriculum generation, and RAG
+
+#### Technology
+
+- **FastAPI**: Python web framework
+- **PyTorch**: Neural networks for retention modeling
+- **scikit-learn**: ML algorithms
+- **Sentence-Transformers**: Embeddings for RAG
+- **Redis**: Embedding cache
+
+#### Features Implemented
+
+✅ **Retention Prediction** (PyTorch neural network)
+✅ **Forgetting Curve Modeling** (personalized decay rates)
+✅ **Curriculum Generation** (Bloom's taxonomy, IRT-based)
+✅ **Document Processing** (structure extraction, topic extraction)
+✅ **RAG Engine** (vector embeddings, semantic search)
+✅ **Content Analysis** (quality assessment, entity extraction)
+✅ **Psychological Profiling** (learning style, cognitive load, burnout risk)
+✅ **Kafka Consumer** (async event processing)
+
+#### Features Remaining
+
+(None - All planned AI features implemented)
+
+#### Services
+
+**Retention Model** (`/services/retention_model.py`)
+- PyTorch neural network
+- Input: User history, review quality, intervals
+- Output: Retention probability (0-1)
+- Training: Supervised learning on review logs
+
+**Curriculum Generator** (`/services/curriculum_generator.py`)
+- Bloom's taxonomy integration
+- Topic dependency mapping
+- Difficulty progression
+- Time estimation
+
+**Document Processor** (`/services/document_processor.py`)
+- PDF/DOCX/TXT parsing
+- Structure extraction
+- Flashcard generation
+- Question generation
+
+**RAG Engine** (`/services/rag_engine.py`)
+- Sentence-Transformers embeddings
+- Vector similarity search
+- Context retrieval
+- Redis caching
+
+#### Event System
+
+**Consuming:**
+- **CONTENT_CAPTURED**: Triggers content analysis
+- **DOCUMENT_UPLOADED**: Triggers document processing
+- **REVIEW_COMPLETED**: Updates retention model
 
 ---
 
@@ -1107,6 +1135,7 @@ cd services/notification-service && bun run src/index.ts
 - Learning Service: http://localhost:3003
 - Gamification Service: http://localhost:3004
 - Notification Service: http://localhost:3005
+- AI Service: http://localhost:8000
 - PostgreSQL: localhost:5432
 - Kafka: localhost:9092
 - Redis: localhost:6379
@@ -1262,7 +1291,7 @@ Planned testing stack:
 
 #### Security & Authentication
 - [x] JWT validation middleware on protected routes
-- [ ] Refresh token mechanism
+- [x] Refresh token mechanism
 - [x] Rate limiting
 - [x] CORS configuration review
 - [x] Environment variable validation

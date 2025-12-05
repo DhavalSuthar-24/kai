@@ -8,10 +8,38 @@ export class AchievementService {
   
   async seedAchievements() {
     const achievements = [
-      { name: 'First Step', description: 'Complete your first topic', points: 50, id: 'first-step' },
-      { name: 'Flashcard Rookie', description: 'Review 10 flashcards', points: 100, id: 'flashcard-rookie' },
-      { name: 'Focus Master', description: 'Accumulate 100 minutes of focus time', points: 200, id: 'focus-master' },
-      { name: 'Streak Week', description: 'Maintain a 7-day streak', points: 500, id: 'streak-week' }
+      { 
+        name: 'First Step', 
+        description: 'Complete your first topic', 
+        points: 50, 
+        id: 'first-step',
+        criteriaType: 'TOPIC_COUNT',
+        criteriaValue: 1
+      },
+      { 
+        name: 'Flashcard Rookie', 
+        description: 'Review 10 flashcards', 
+        points: 100, 
+        id: 'flashcard-rookie',
+        criteriaType: 'XP',
+        criteriaValue: 10
+      },
+      { 
+        name: 'Focus Master', 
+        description: 'Accumulate 100 minutes of focus time', 
+        points: 200, 
+        id: 'focus-master',
+        criteriaType: 'XP',
+        criteriaValue: 100
+      },
+      { 
+        name: 'Streak Week', 
+        description: 'Maintain a 7-day streak', 
+        points: 500, 
+        id: 'streak-week',
+        criteriaType: 'STREAK',
+        criteriaValue: 7
+      }
     ];
 
     for (const ach of achievements) {

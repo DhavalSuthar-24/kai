@@ -110,7 +110,9 @@ export class AnalyticsService {
          const map = new Map<string, number>();
          sessions.forEach(s => {
              const date = s.startedAt.toISOString().split('T')[0];
-             map.set(date, (map.get(date) || 0) + (s.duration || 0));
+             if (date) {
+                 map.set(date, (map.get(date) || 0) + (s.duration || 0));
+             }
          });
          
          return Array.from(map.entries()).map(([date, minutes]) => ({ date, minutes }));

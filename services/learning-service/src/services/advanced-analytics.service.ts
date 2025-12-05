@@ -171,7 +171,7 @@ export class AdvancedAnalyticsService {
         return {
             memoryType: 'semantic', 
             optimalSessionLength: Math.round(avgDuration),
-            peakHour: optimalTime ? parseInt(optimalTime.split(':')[0]) : null,
+            peakHour: optimalTime ? parseInt(optimalTime.split(':')[0] || '0') : null,
             forgettingRate: 0.3 // Default "medium" forgetting
         };
     }

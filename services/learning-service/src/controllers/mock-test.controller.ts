@@ -54,7 +54,12 @@ export class MockTestController {
    */
   static submitTest = asyncHandler(async (req: AuthRequest, res: Response) => {
     const userId = req.user?.id!;
-    const { id: sessionId } = req.params;
+    const sessionId = req.params.id;
+    
+    if (!sessionId) {
+      return res.status(400).json({ success: false, message: 'Session ID is required' });
+    }
+    
     const validated = submitTestSchema.parse(req.body);
 
     const result = await mockTestService.submitTest(sessionId, userId, validated.answers);
@@ -73,7 +78,12 @@ export class MockTestController {
    * Record anti-cheat violation
    */
   static recordViolation = asyncHandler(async (req: AuthRequest, res: Response) => {
-    const { id: sessionId } = req.params;
+    const sessionId = req.params.id;
+    
+    if (!sessionId) {
+      return res.status(400).json({ success: false, message: 'Session ID is required' });
+    }
+    
     const validated = violationSchema.parse(req.body);
 
     await mockTestService.recordViolation(
@@ -94,7 +104,11 @@ export class MockTestController {
    */
   static getLeaderboard = asyncHandler(async (req: AuthRequest, res: Response) => {
     const userId = req.user?.id!;
-    const { topicId } = req.params;
+    const topicId = req.params.topicId;
+    
+    if (!topicId) {
+      return res.status(400).json({ success: false, message: 'Topic ID is required' });
+    }
 
     const leaderboard = await mockTestService.getLeaderboard(topicId, userId);
 

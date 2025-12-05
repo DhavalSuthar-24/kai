@@ -1,4 +1,3 @@
-```typescript
 import { type Request, type Response } from 'express';
 import { asyncHandler, successResponse, type AuthRequest, UnauthorizedError, errorResponse } from '@shared/index.ts';
 import { AnalyticsService } from '../services/analytics.service';

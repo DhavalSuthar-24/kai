@@ -26,7 +26,8 @@ export class ViralService {
 
     constructor() {
         // Initialize Redis for caching badges/links
-         this.redis = RedisClient.getInstance();
+        const redisUrl = process.env.REDIS_URL || `redis://${process.env.REDIS_HOST || 'localhost'}:${process.env.REDIS_PORT || '6379'}`;
+        this.redis = new RedisClient(redisUrl);
     }
 
     async generateStreakBadge(userId: string, template: string = 'minimal'): Promise<BadgePayload> {
@@ -63,7 +64,7 @@ export class ViralService {
 
             // 5. Cache for 1 hour
             const cacheKey = `badge:${userId}:${streak}`;
-            await this.redis.setEx(cacheKey, 3600, JSON.stringify({ svg, deepLink }));
+            await this.redis.set(cacheKey, JSON.stringify({ svg, deepLink }), 3600);
 
             // Log the "intent" to share (not the actual platform share yet)
             // We only track the actual share when the client confirms it, but strictly for badge generation we can assume user intent
@@ -91,7 +92,7 @@ export class ViralService {
         // Simulate Branch.io / Dynamic Link generation
         // In prod: call Branch API
         const uniqueId = Math.random().toString(36).substring(7);
-        const baseUrl = this.config.GAMIFICATION_SERVICE_URL || 'http://localhost:3004';
+        const baseUrl = process.env.GAMIFICATION_SERVICE_URL || 'http://localhost:3004';
         return `${baseUrl}/deep-link/${uniqueId}?source=${payload.source_user}&campaign=${payload.campaign}`;
     }
 

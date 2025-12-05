@@ -1,5 +1,5 @@
 import prisma from '../prisma';
-import { createLogger, redisClient } from '@shared/index.ts';
+import { createLogger, RedisClient } from '@shared/index.ts';
 
 const logger = createLogger('curriculum-service');
 

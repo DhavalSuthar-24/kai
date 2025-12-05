@@ -346,3 +346,10 @@ export class ChallengeController {
     }
   }
 }
+
+// Export named functions for routes
+export const createChallenge = ChallengeController.createChallenge;
+export const joinChallenge = ChallengeController.acceptChallenge;
+export const getChallenges = ChallengeController.getChallengeHistory;
+export const getMyChallenges = ChallengeController.getChallengeHistory;
+

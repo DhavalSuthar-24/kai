@@ -36,8 +36,8 @@ export class OfflineSyncService {
             // Fetch quizzes for recent active topics
             prisma.quiz.findMany({
                 where: {
-                    topic: { userId },
-                    // Simple heuristic: fetch recent quizzes
+                    topicId: { in: await prisma.topic.findMany({ where: { userId }, select: { id: true } }).then(topics => topics.map(t => t.id)) },
+                    // Simple heuristic: fetch recent quizz es
                 },
                 include: { questions: true },
                 take: 5

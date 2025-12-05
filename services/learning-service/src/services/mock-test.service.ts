@@ -417,7 +417,7 @@ export class MockTestService {
         throw new Error('AI service error');
       }
 
-      const data = await response.json();
+      const data = await response.json() as { questions?: any[] };
       return data.questions || [];
     } catch (error) {
       logger.error('Error fetching questions from AI:', error);
