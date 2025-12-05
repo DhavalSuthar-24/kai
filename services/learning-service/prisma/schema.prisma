@@ -15,6 +15,8 @@ model Topic {
   userId           String
   parentId         String?
   moduleId         String?
+  color            String?  // Color for UI display
+  icon             String?  // Emoji or icon identifier
   difficulty       Int      @default(1)
   estimatedMinutes Int      @default(0)
   bloomsLevel      String   @default("remember")
@@ -28,6 +30,7 @@ model Topic {
   flashcards       Flashcard[]
   reviewLogs       ReviewLog[]
   subtopics        Subtopic[]
+  quiz             Quiz[]
   
   prerequisites    TopicDependency[]  @relation("Prerequisites")
   dependents       TopicDependency[]  @relation("Dependents")
@@ -43,6 +46,7 @@ model Syllabus {
 
 model Flashcard {
   id        String   @id @default(uuid())
+  userId    String   // Owner of the flashcard
   topicId   String
   front     String
   back      String
@@ -55,10 +59,11 @@ model Flashcard {
   deletedAt DateTime?
   archivedAt DateTime?
 
-  topic      Topic       @relation(fields: [topicId], references: [id])
+  topic      Topic       @relation(fields: [topicId], references: [id], onDelete: Cascade)
   reviewLogs ReviewLog[]
 
   @@index([topicId, nextReview])
+  @@index([userId, nextReview])
 }
 
 model ReviewLog {
@@ -71,8 +76,8 @@ model ReviewLog {
   interval    Int
   reviewedAt  DateTime @default(now())
 
-  flashcard   Flashcard @relation(fields: [flashcardId], references: [id])
-  topic       Topic     @relation(fields: [topicId], references: [id])
+  flashcard   Flashcard @relation(fields: [flashcardId], references: [id], onDelete: Cascade)
+  topic       Topic     @relation(fields: [topicId], references: [id], onDelete: Cascade)
 
   @@index([userId, reviewedAt])
   @@index([topicId])
@@ -158,6 +163,20 @@ model ScreenTimePattern {
   @@unique([userId, date, appName])
   @@index([userId, date])
   @@index([userId, isDoomscroll])
+}
+
+model DailyActivity {
+  id                 String   @id @default(uuid())
+  userId             String
+  date               DateTime // Normalized to start of day
+  flashcardsReviewed Int      @default(0)
+  studyTime          Int      @default(0) // Minutes
+  topicsStudied      Int      @default(0)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  @@unique([userId, date])
+  @@index([userId, date])
 }
 
 model Intervention {
@@ -357,7 +376,7 @@ model Subtopic {
   estimatedMinutes Int
   keyPoints        String   
   
-  topic            Topic    @relation(fields: [topicId], references: [id])
+  topic            Topic    @relation(fields: [topicId], references: [id], onDelete: Cascade)
   
   userMastery      UserMastery[]
 
@@ -371,8 +390,8 @@ model TopicDependency {
   toTopicId   String
   strength    String   @default("REQUIRED")
 
-  fromTopic   Topic    @relation("Dependents", fields: [fromTopicId], references: [id])
-  toTopic     Topic    @relation("Prerequisites", fields: [toTopicId], references: [id])
+  fromTopic   Topic    @relation("Dependents", fields: [fromTopicId], references: [id], onDelete: Cascade)
+  toTopic     Topic    @relation("Prerequisites", fields: [toTopicId], references: [id], onDelete: Cascade)
 
   createdAt   DateTime @default(now())
 
@@ -430,6 +449,7 @@ model Quiz {
   difficulty   Int      @default(1)
   totalPoints  Int      @default(0)
   
+  topic        Topic            @relation(fields: [topicId], references: [id], onDelete: Cascade)
   questions    QuizQuestion[]
   
   createdAt    DateTime @default(now())
@@ -447,7 +467,7 @@ model QuizQuestion {
   difficulty      Int
   bloomsLevel     String
   
-  quiz            Quiz     @relation(fields: [quizId], references: [id])
+  quiz            Quiz     @relation(fields: [quizId], references: [id], onDelete: Cascade)
   
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
@@ -468,7 +488,7 @@ model UserMastery {
   lastReviewDate       DateTime?
   nextReviewDate       DateTime? 
   
-  subtopic    Subtopic @relation(fields: [subtopicId], references: [id])
+  subtopic    Subtopic @relation(fields: [subtopicId], references: [id], onDelete: Cascade)
 
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
@@ -476,6 +496,7 @@ model UserMastery {
   @@unique([userId, subtopicId])
   @@index([userId])
   @@index([nextReviewDate]) // For scheduler
+  @@index([userId, nextReviewDate])
 }
 
 model OfflineSyncLog {
@@ -491,6 +512,115 @@ model OfflineSyncLog {
 
   @@index([userId, clientTimestamp])
   @@index([userId, status])
+}
+
+// --- PART 5: Challenge Engine & TrueSkill Matchmaking ---
+
+model ChallengeRating {
+  userId    String
+  topicId   String  
+  mu        Float   @default(25.0)  // TrueSkill skill rating
+  sigma     Float   @default(8.333) // Uncertainty
+  games     Int     @default(0)
+  
+  @@id([userId, topicId])
+  @@index([topicId, mu])
+}
+
+model ChallengeMatch {
+  id            String   @id @default(uuid())
+  challengerId  String
+  opponentId    String  
+  topicId       String
+  status        String   @default("PENDING") // PENDING, ACTIVE, COMPLETED, EXPIRED
+  questionCount Int
+  timeLimit     Int      // seconds
+  content       String   // JSON: questions
+  createdAt     DateTime @default(now())
+  expiresAt     DateTime
+  startedAt     DateTime?
+  completedAt   DateTime?
+  
+  results       ChallengeResult[]
+  
+  @@index([challengerId])
+  @@index([opponentId])
+  @@index([status])
+}
+
+model ChallengeResult {
+  id          String   @id @default(uuid())
+  matchId     String
+  userId      String
+  score       Float    // 0.0-1.0 (accuracy * 0.7 + speed * 0.3)
+  answers     String   // JSON
+  metadata    String?
+  submittedAt DateTime @default(now())
+  
+  match       ChallengeMatch @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  
+  @@index([matchId])
+  @@index([userId])
+}
+
+// --- PART 5: Social Graph & Verifiable Results ---
+
+model SocialGraph {
+  id         String   @id @default(uuid())
+  followerId String
+  targetId   String
+  topics     String[] // Topic-specific follows
+  createdAt  DateTime @default(now())
+  
+  @@unique([followerId, targetId])
+  @@index([targetId])
+  @@index([followerId])
+}
+
+model PrivacySettings {
+  userId                String   @id
+  profileVisibility     String   @default("PUBLIC") // PUBLIC, FOLLOWERS, PRIVATE
+  showMockResults       String   @default("FOLLOWERS")
+  showChallengeHistory  String   @default("NOBODY")
+  showStreak            String   @default("PUBLIC")
+  whoCanFollow          String   @default("ANYONE")
+  allowFollowerNotif    Boolean  @default(true)
+  updatedAt             DateTime @updatedAt
+}
+
+model BlockList {
+  userId    String
+  blockedId String
+  createdAt DateTime @default(now())
+  
+  @@id([userId, blockedId])
+  @@index([userId])
+}
+
+model SharedResult {
+  shareId     String   @id @default(uuid())
+  resultId    String
+  resultType  String   // CHALLENGE, MOCK_TEST, ACHIEVEMENT
+  visibility  String   // PUBLIC, UNLISTED
+  accessCount Int      @default(0)
+  createdAt   DateTime @default(now())
+  expiresAt   DateTime?
+  
+  @@index([resultId])
+  @@index([shareId])
+}
+
+model ResultProof {
+  id            String   @id @default(uuid())
+  resultId      String   @unique
+  userId        String
+  merkleRoot    String
+  proofData     String   // JSON: ZK proof metadata
+  integrityCheck String  // Verification checksum
+  verified      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  
+  @@index([userId])
 }
 
 // --- PART 5: Mock Test Competitions & Anti-Cheat ---
@@ -528,10 +658,11 @@ model MockTestResult {
   metadata       String?  // {tabSwitches, flags, violations}
   submittedAt    DateTime @default(now())
   
-  test           MockTest @relation(fields: [testId], references: [id])
+  test           MockTest @relation(fields: [testId], references: [id], onDelete: Cascade)
   
   @@index([topicId, score])
   @@index([userId])
+  @@index([userId, topicId])
 }
 
 model MockTestLeaderboard {
@@ -578,7 +709,7 @@ model FeedImpression {
   action     String   // VIEWED, CLICKED, DISMISSED
   timestamp  DateTime @default(now())
   
-  item       FeedItem @relation(fields: [itemId], references: [id])
+  item       FeedItem @relation(fields: [itemId], references: [id], onDelete: Cascade)
   
   @@index([userId, timestamp])
   @@index([itemId])

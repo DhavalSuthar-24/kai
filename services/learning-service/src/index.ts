@@ -25,6 +25,9 @@ import offlineRoutes from './routes/offline.routes.ts';
 import screenTimeRoutes from './routes/screen-time.routes';
 import mockTestRoutes from './routes/mock-test.routes.ts';
 import feedRoutes from './routes/feed.routes.ts';
+// Routes
+import flashcardRoutes from './routes/flashcard.routes';
+import topicRoutes from './routes/topic.routes.ts';
 import { startContentGenWorker } from './workers/content-gen.worker';
 import { startReviewSchedulerWorker, scheduleNightlyJob } from './workers/review-scheduler.worker';
 import { handleUserCreated } from './consumers/user-consumer.ts';
@@ -118,8 +121,16 @@ const startServer = async () => {
         logger.error('Failed to subscribe to Kafka topic content-events', err);
     });
 
-    await kafkaClient.consume('learning-service-interventions', 'intervention-events', handleInterventionEvent).catch((err: any) => {
-        logger.error('Failed to subscribe to Kafka topic intervention-events', err);
+    // Subscribe to intervention events
+    const { handleInterventionEvent } = await import('./consumers/intervention.consumer.ts');
+    await kafkaClient.consume('learning-service-intervention', 'intervention-events', handleInterventionEvent).catch((err: any) => {
+      logger.error('Failed to subscribe to intervention-events', err);
+    });
+    
+    // Subscribe to screen usage events
+    const { handleScreenUsageEvent } = await import('./consumers/screen-usage.consumer.ts');
+    await kafkaClient.consume('learning-service-screen', 'learning-events', handleScreenUsageEvent).catch((err: any) => {
+      logger.error('Failed to subscribe to screen usage events', err);
     });
 
     // Create HTTP server

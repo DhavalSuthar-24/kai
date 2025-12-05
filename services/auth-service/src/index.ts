@@ -86,10 +86,15 @@ app.use(errorHandler as any);
 
 const startServer = async () => {
   try {
-    // Only connect if KAFKA_ENABLED is true or just try and log error
-    // For now, we assume Kafka is available or we handle error gracefully
+    // Connect Kafka producer
     await kafkaClient.connectProducer().catch(err => {
         logger.error('Failed to connect to Kafka', err);
+    });
+    
+    // Subscribe to gamification events
+    const { handleGamificationEvent } = await import('./consumers/gamification.consumer.ts');
+    await kafkaClient.consume('auth-service-gamification', 'gamification-events', handleGamificationEvent).catch(err => {
+      logger.error('Failed to subscribe to gamification-events', err);
     });
     
     app.listen(PORT, () => {

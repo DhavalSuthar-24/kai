@@ -30,6 +30,15 @@ app.include_router(document.router, prefix="/api/v1", tags=["document"])
 app.include_router(rag.router, prefix="/api/v1", tags=["rag"])
 app.include_router(retention.router, prefix="/api/v1", tags=["retention"])
 
+@app.on_event("startup")
+async def startup_event():
+    logger.info("AI Service starting up...")
+    # Start Kafka consumer in background
+    from app.consumers.content_consumer import start_event_consumer
+    import asyncio
+    asyncio.create_task(start_event_consumer())
+    logger.info("AI Service started successfully")
+
 @app.get("/health")
 async def health_check():
     return {"status": "ok", "service": "ai-service"}

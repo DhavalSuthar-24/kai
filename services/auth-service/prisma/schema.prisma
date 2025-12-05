@@ -27,6 +27,9 @@ model User {
   archivedAt        DateTime?
   publicKey         String?  // For E2EE data export
 
+  refreshTokens     RefreshToken[]
+  preferences       UserPreferences?
+
   @@index([email])
   @@index([provider, providerId])
 }
@@ -40,6 +43,8 @@ model RefreshToken {
   isRevoked  Boolean   @default(false)
   revokedAt  DateTime?
 
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
   @@index([userId])
   @@index([token])
 }
@@ -48,6 +53,8 @@ model UserPreferences {
   id                      String   @id @default(uuid())
   userId                  String   @unique
   
+  user                    User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
   // Global notification toggles - MOVED TO notification-service
   // Granular notification type preferences - MOVED TO notification-service
   

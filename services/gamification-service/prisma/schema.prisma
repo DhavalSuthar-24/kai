@@ -15,16 +15,24 @@ model User {
   name      String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  
+  progress       UserProgress?
+  dailyActivity  DailyActivity[]
+  sentRequests   Friendship[]    @relation("SentRequests")
+  receivedRequests Friendship[]  @relation("ReceivedRequests")
 }
 
 model UserProgress {
-  id        String   @id @default(uuid())
-  userId    String   @unique
-  points    Int      @default(0)
-  level     Int      @default(1)
-  streak    Int      @default(0)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id            String   @id @default(uuid())
+  userId        String   @unique
+  points        Int      @default(0)
+  level         Int      @default(1)
+  streak        Int      @default(0)
+  longestStreak Int      @default(0)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model DailyActivity {
@@ -35,6 +43,8 @@ model DailyActivity {
   actions   Int      @default(0)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([userId, date]) // Ensure one record per user per day
 }
@@ -58,7 +68,7 @@ model UserAchievement {
   achievementId String
   unlockedAt    DateTime @default(now())
 
-  achievement   Achievement @relation(fields: [achievementId], references: [id])
+  achievement   Achievement @relation(fields: [achievementId], references: [id], onDelete: Cascade)
   
   @@unique([userId, achievementId])
 }
@@ -109,7 +119,7 @@ model ChallengeParticipant {
   joinedAt      DateTime @default(now())
   completedAt   DateTime?
 
-  challenge     Challenge @relation(fields: [challengeId], references: [id])
+  challenge     Challenge @relation(fields: [challengeId], references: [id], onDelete: Cascade)
   
   @@unique([challengeId, userId])
   @@index([userId])
@@ -156,6 +166,9 @@ model Friendship {
   status      String   @default("PENDING") // PENDING, ACCEPTED, REJECTED, BLOCKED
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+  
+  user        User     @relation("SentRequests", fields: [userId], references: [id], onDelete: Cascade)
+  friend      User     @relation("ReceivedRequests", fields: [friendId], references: [id], onDelete: Cascade)
   
   @@unique([userId, friendId])
   @@index([userId])
@@ -212,7 +225,7 @@ model Answer {
   upvotes     Int      @default(0)
   createdAt   DateTime @default(now())
 
-  question    Question @relation(fields: [questionId], references: [id])
+  question    Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
 
   @@index([questionId])
   @@index([quality(sort: Desc)])
@@ -266,9 +279,10 @@ model ChallengeResult {
   userId      String
   score       Float    // 0.0-1.0 (accuracy * 0.7 + speed * 0.3)
   answers     String   // JSON
+  metadata    String?
   submittedAt DateTime @default(now())
   
-  match       ChallengeMatch @relation(fields: [matchId], references: [id])
+  match       ChallengeMatch @relation(fields: [matchId], references: [id], onDelete: Cascade)
   
   @@index([matchId])
   @@index([userId])

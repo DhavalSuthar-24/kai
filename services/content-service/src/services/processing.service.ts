@@ -51,15 +51,21 @@ export class ProcessingService {
         }
       });
 
-      // 5. Publish Event
-      await kafkaClient.send('content-group', [{
+      // 5. Publish Event with standardized structure
+      await kafkaClient.send('content-events', [{
         type: 'CONTENT_PROCESSED',
-        payload: {
+        version: '1.0',
+        timestamp: new Date().toISOString(),
+        data: {
           captureId,
           userId,
-          text: ocrResult.text,
-          aiAnalysis: aiResult,
-          timestamp: new Date().toISOString()
+          status: 'PROCESSED',
+          extractedText: ocrResult.text,
+          topics: aiResult?.entities || []
+        },
+        metadata: {
+          correlationId: crypto.randomUUID(),
+          source: 'content-service'
         }
       }]);
 

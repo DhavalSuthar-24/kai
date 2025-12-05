@@ -35,11 +35,21 @@ export class ViralService {
             // 1. Fetch real-time achievements
             const userProgress = await prisma.userProgress.findUnique({ where: { userId } });
             const streak = userProgress?.streak || 0;
-            // Mock rank and mastery for now
-            const masteryScore = 0.75; 
-            const rank = 142;
-
-            // 2. Generate personalized visual (Mocking dynamic SVG generation)
+            // 1. Fetch User Stats from Learning Service
+            const { services } = await import('@shared/index.ts');
+            let rank = 1;
+            let mastery = 0.85;
+            
+            try {
+                const masteryData = await services.learning.get<{rank?: number, score?: number}>(`/learning/mastery/${userId}`);
+                rank = masteryData.rank || 1;
+                mastery = masteryData.score || 0.85;
+            } catch (error) {
+                logger.warn(`Failed to fetch mastery for user ${userId}, using defaults`, error);
+            }
+            
+            // 2. Generate personalized visual
+            // Using simple template for now, can be enhanced with dynamic SVG generation
             // In a real implementation, we'd use a library to draw this based on inputs
             const svg = `<svg width="400" height="400" xmlns="http://www.w3.org/2000/svg">
                 <rect width="100%" height="100%" fill="${this.selectGradient(streak)}"/>
@@ -60,7 +70,7 @@ export class ViralService {
             });
 
             // 4. Generate Share Text
-            const shareText = await this.generateShareText(streak, masteryScore);
+            const shareText = await this.generateShareText(streak, mastery);
 
             // 5. Cache for 1 hour
             const cacheKey = `badge:${userId}:${streak}`;
@@ -104,14 +114,24 @@ export class ViralService {
             Generate 3 variations of share text for:
             - Streak: ${streak} days
             - Mastery: ${Math.round(masteryScore * 100)}%
-            Tone: Humble-brag, encouraging, not arrogant. Include emojis. Return only the best one.
-            `;
+            Tone: Humble-brag, encouraging, not arrogant. Include emojis.`;
             
-            // Mock response if AI service isn't reachable or for speed
-            // const response = await axios.post(`${aiServiceUrl}/api/v1/generate`, { prompt });
-            // return response.data.text;
+            // 1. Call AI Service for caption generation
+            const { services } = await import('@shared/index.ts');
+            let caption = `I just hit a ${streak}-day streak on BrainX! 🚀 Can you beat me? #BrainX #Learning`;
             
-            return `I just hit a ${streak}-day streak on BrainX! 🚀 Can you beat me? #BrainX #Learning`; 
+            try {
+                const aiResponse = await services.ai.post<{caption?: string}>('/api/v1/content/generate-caption', {
+                    achievement: `a ${streak}-day streak and ${Math.round(masteryScore * 100)}% mastery`,
+                    context: 'social_share',
+                    prompt: prompt // Pass the detailed prompt to the AI service
+                });
+                caption = aiResponse.caption || caption;
+            } catch (error) {
+                logger.warn('AI service unavailable, using default caption', error);
+            }
+            
+            return caption;
         } catch (error) {
            return `Check out my ${streak}-day streak on BrainX!`;
         }

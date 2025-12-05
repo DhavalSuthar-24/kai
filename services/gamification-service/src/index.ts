@@ -112,6 +112,12 @@ const startServer = async () => {
         });
     });
 
+    // Subscribe to learning events for gamification
+    const { handleLearningEvent } = await import('./consumers/learning.consumer.ts');
+    await kafkaClient.consume('gamification-service-learning', 'learning-events', handleLearningEvent).catch(err => {
+      logger.error('Failed to subscribe to learning-events', err);
+    });
+
     // Start Scheduler
     await import('./schedulers/streak-scheduler.ts').then(m => m.startStreakScheduler());
     

@@ -19,4 +19,19 @@ router.post('/:id/violation', MockTestController.recordViolation);
 // GET /mock-tests/leaderboard/:topicId - Get leaderboard
 router.get('/leaderboard/:topicId', MockTestController.getLeaderboard);
 
+// POST /mock-tests/results/:resultId/share - Generate shareable result
+router.post('/results/:resultId/share', MockTestController.shareResult);
+
+// GET /mock-tests/shared/:shareId - Get shared result (public)
+router.get('/shared/:shareId', MockTestController.getSharedResult);
+
+// GET /mock-tests/analytics/user - Get user analytics
+router.get('/analytics/user', MockTestController.getUserAnalytics);
+
+// GET /mock-tests/analytics/topic/:topicId - Get topic analytics
+router.get('/analytics/topic/:topicId', MockTestController.getTopicAnalytics);
+
+// GET /mock-tests/analytics/compare/:userId - Compare performance
+router.get('/analytics/compare/:userId', MockTestController.comparePerformance);
+
 export default router;

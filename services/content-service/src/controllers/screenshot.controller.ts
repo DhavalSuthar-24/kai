@@ -94,13 +94,27 @@ export const uploadScreenshot = asyncHandler(async (req: AuthRequest, res: Respo
   });
 
   // Emit SCREENSHOT_UPLOADED event
-  await kafkaClient.send('screenshot-processor', [{
+  // Publish Kafka event with standardized structure
+  await kafkaClient.send('content-events', [{
     type: 'SCREENSHOT_UPLOADED',
-    payload: {
+    version: '1.0',
+    timestamp: new Date().toISOString(),
+    data: {
       captureId: capture.id,
-      userId,
-      filePath: processingFilePath,
-      timestamp: new Date().toISOString()
+      userId: req.user!.id,
+      fileUrl: uploadResult.url, // Using uploadResult.url as fileUrl
+      metadata: {
+        // These values (width, height) are not available from `file` or `uploadResult` directly.
+        // They would typically be extracted during image processing or from client-side metadata.
+        // For now, setting them to null or undefined as they are not present in the current context.
+        width: null, 
+        height: null,
+        fileSize: file.size // Using file.size for fileSize
+      }
+    },
+    metadata: {
+      correlationId: (req as any).correlationId || crypto.randomUUID(),
+      source: 'content-service'
     }
   }]);
 

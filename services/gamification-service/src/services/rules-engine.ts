@@ -7,33 +7,46 @@ import { leaderboardService } from './leaderboard.service.ts';
 
 const logger = createLogger('rules-engine');
 
+import { levelProgressionService } from './level-progression.service.ts';
+
 export class RulesEngine {
+
   async processEvent(userId: string, eventType: string, data: Record<string, any>) {
     logger.info('Processing gamification event', { userId, eventType });
 
-    let points = 0;
+    let basePoints = 0;
     let actions = 0;
 
     const POINTS_TOPIC_COMPLETED = 50;
     const POINTS_FLASHCARD_REVIEWED = 10;
+    const POINTS_CHALLENGE_WON = 100;
 
     switch (eventType) {
       case 'TOPIC_COMPLETED':
-        points = POINTS_TOPIC_COMPLETED;
+        basePoints = POINTS_TOPIC_COMPLETED;
         actions = 1;
         break;
       case 'FLASHCARD_REVIEWED':
-        points = POINTS_FLASHCARD_REVIEWED;
+        basePoints = POINTS_FLASHCARD_REVIEWED;
+        actions = 1;
+        break;
+      case 'CHALLENGE_WON':
+        basePoints = POINTS_CHALLENGE_WON;
         actions = 1;
         break;
       default:
-        points = 0;
+        basePoints = 0;
     }
 
-    if (points > 0) {
+    if (basePoints > 0) {
+      // Calculate points with multipliers (streak, level, etc.)
+      const points = await levelProgressionService.awardPointsWithMultipliers(userId, basePoints, eventType);
+      
       await this.awardPoints(userId, points);
       await this.logDailyActivity(userId, points, actions);
-      await this.checkLevelUp(userId);
+      
+      // Check for level up using the new service
+      await levelProgressionService.checkLevelUp(userId);
     }
 
     await this.updateStreak(userId);
@@ -137,29 +150,5 @@ export class RulesEngine {
     }
   }
 
-  private async checkLevelUp(userId: string) {
-    const progress = await prisma.userProgress.findUnique({ where: { userId } });
-    if (!progress) return;
 
-    const currentLevel = progress.level;
-    const calculatedLevel = Math.floor(progress.points / 1000) + 1;
-
-    if (calculatedLevel > currentLevel) {
-      await prisma.userProgress.update({
-        where: { userId },
-        data: { level: calculatedLevel }
-      });
-      logger.info(`User ${userId} leveled up to ${calculatedLevel}`);
-      
-      // Publish Level Up Event
-      await kafkaClient.send('gamification-events', [{
-        type: 'LEVEL_UP',
-        userId,
-        data: {
-          level: calculatedLevel,
-          points: progress.points
-        }
-      }]);
-    }
-  }
 }

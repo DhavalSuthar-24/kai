@@ -35,6 +35,10 @@ model Capture {
   
   tags            Tag[]
   
+  screenshotMetadata ScreenshotMetadata?
+  extractedContent   ExtractedContent[]
+  ranking            ContentRanking?
+  
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
   deletedAt       DateTime?
@@ -65,6 +69,8 @@ model ScreenshotMetadata {
   fileSize        Int?     // Bytes
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
+  
+  capture         Capture  @relation(fields: [captureId], references: [id], onDelete: Cascade)
 
   @@index([captureId])
 }
@@ -78,6 +84,8 @@ model ExtractedContent {
   position    Int?     // Position in original content
   metadata    String?  // JSON: additional extracted info
   createdAt   DateTime @default(now())
+  
+  capture     Capture  @relation(fields: [captureId], references: [id], onDelete: Cascade)
 
   @@index([captureId])
   @@index([contentType])
@@ -98,12 +106,12 @@ model ContentRanking {
   accessCount       Int      @default(0)
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
+  
+  capture           Capture  @relation(fields: [captureId], references: [id], onDelete: Cascade)
 
   @@index([userId, finalScore])
   @@index([userId, isEssential])
 }
-
-
 
 model Tag {
   id        String   @id @default(uuid())
@@ -157,7 +165,7 @@ model ProcessedDocument {
   readingTime     Int      @default(0)
   difficultyScore Float    @default(0.0)
   
-  upload          DocumentUpload @relation(fields: [uploadId], references: [id])
+  upload          DocumentUpload @relation(fields: [uploadId], references: [id], onDelete: Cascade)
   chunks          DocumentChunk[]
 
   createdAt       DateTime @default(now())
@@ -172,7 +180,7 @@ model DocumentChunk {
   embedding       Unsupported("vector(1536)")? // Using pgvector if available
   metadata        String?  // JSON
   
-  processedDoc    ProcessedDocument @relation(fields: [processedDocId], references: [id])
+  processedDoc    ProcessedDocument @relation(fields: [processedDocId], references: [id], onDelete: Cascade)
   
   createdAt       DateTime @default(now())
   

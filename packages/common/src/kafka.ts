@@ -55,6 +55,19 @@ export class KafkaClient {
     logger.info(`Kafka Consumer connected to topic: ${topic}`);
   }
 
+  async publishEvent(topic: string, event: any) {
+    try {
+      await this.producer.send({
+        topic,
+        messages: [{ value: JSON.stringify(event) }],
+      });
+      logger.debug(`Event published to ${topic}`, { type: event.type });
+    } catch (error) {
+      logger.error(`Error publishing event to ${topic}`, error);
+      throw error;
+    }
+  }
+
   async disconnect() {
     await this.producer.disconnect();
     for (const consumer of this.consumers) {

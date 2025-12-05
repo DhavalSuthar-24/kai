@@ -135,6 +135,24 @@ const startServer = async () => {
     startRetryProcessor();
     startCleanupScheduler();
 
+    // Subscribe to learning events for notifications
+    const { handleLearningNotificationEvent } = await import('./consumers/learning.consumer.ts');
+    await kafkaClient.consume('notification-service-learning', 'learning-events', handleLearningNotificationEvent).catch((err: any) => {
+      logger.error('Failed to subscribe to learning-events', err);
+    });
+
+    // Subscribe to gamification events for notifications
+    const { handleGamificationNotificationEvent } = await import('./consumers/gamification.consumer.ts');
+    await kafkaClient.consume('notification-service-gamification', 'gamification-events', handleGamificationNotificationEvent).catch((err: any) => {
+      logger.error('Failed to subscribe to gamification-events', err);
+    });
+
+    // Subscribe to user events for notifications
+    const { handleUserNotificationEvent } = await import('./consumers/user.consumer.ts');
+    await kafkaClient.consume('notification-service-user', 'user-events', handleUserNotificationEvent).catch((err: any) => {
+      logger.error('Failed to subscribe to user-events', err);
+    });
+
     app.listen(PORT, () => {
       logger.info(`Notification Service running on port ${PORT}`, { service: 'notification-service' });
     });
