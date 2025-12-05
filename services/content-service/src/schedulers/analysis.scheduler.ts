@@ -1,6 +1,5 @@
 import cron from 'node-cron';
 import { createLogger } from '@shared/index.ts';
-import { doomscrollService } from '../services/doomscroll.service.ts';
 
 const logger = createLogger('analysis-scheduler');
 

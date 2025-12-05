@@ -48,12 +48,13 @@ export interface AuthRequest extends Request {
     id: string;
     email: string;
     role: string;
+    isVerified: boolean;
   };
   correlationId?: string;
 }
 
 // JWT validation middleware with proper environment variable
-export const authMiddleware = (req: AuthRequest, res: Response, next: NextFunction) => {
+export const authMiddleware = (req: Request, res: Response, next: NextFunction) => {
   const token = req.headers.authorization?.split(' ')[1];
 
   if (!token) {
@@ -63,16 +64,45 @@ export const authMiddleware = (req: AuthRequest, res: Response, next: NextFuncti
   try {
     const config = getConfig();
     const decoded = jwt.verify(token, config.JWT_SECRET) as any;
-    req.user = {
+    (req as AuthRequest).user = {
       id: decoded.id || decoded.userId,
       email: decoded.email,
       role: decoded.role || 'USER',
+      isVerified: decoded.isVerified || false,
     };
     next();
   } catch (error) {
-    logger.warn('Invalid JWT token', { error: (error as Error).message, correlationId: req.correlationId });
+    logger.warn('Invalid JWT token', { error: (error as Error).message, correlationId: (req as AuthRequest).correlationId });
     return res.status(401).json(errorResponse('Unauthorized: Invalid token'));
   }
+};
+
+export const requireVerifiedEmail = (req: Request, res: Response, next: NextFunction) => {
+  const authReq = req as AuthRequest;
+  if (!authReq.user) {
+    return res.status(401).json(errorResponse('Unauthorized: User not authenticated'));
+  }
+
+  if (!authReq.user.isVerified) {
+    return res.status(403).json(errorResponse('Forbidden: Email verification required'));
+  }
+
+  next();
+};
+
+export const requireRole = (roles: string[]) => {
+  return (req: Request, res: Response, next: NextFunction) => {
+    const authReq = req as AuthRequest;
+    if (!authReq.user) {
+      return res.status(401).json(errorResponse('Unauthorized: User not authenticated'));
+    }
+
+    if (!roles.includes(authReq.user.role)) {
+      return res.status(403).json(errorResponse('Forbidden: Insufficient permissions'));
+    }
+
+    next();
+  };
 };
 
 // Rate limiting middleware factory
@@ -170,4 +200,27 @@ export const createHelmetMiddleware = () => {
       preload: true,
     },
   });
+};
+
+// Pagination middleware
+export interface PaginationRequest extends Request {
+  pagination: {
+    page: number;
+    limit: number;
+    skip: number;
+  };
+}
+
+export const paginationMiddleware = (req: Request, res: Response, next: NextFunction) => {
+  const page = parseInt(req.query.page as string) || 1;
+  const limit = parseInt(req.query.limit as string) || 20;
+  const skip = (page - 1) * limit;
+
+  (req as any).pagination = {
+    page,
+    limit,
+    skip,
+  };
+
+  next();
 };

@@ -9,6 +9,14 @@ datasource db {
   provider = "postgresql"
 }
 
+model User {
+  id        String   @id
+  email     String   @unique
+  name      String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
 model UserProgress {
   id        String   @id @default(uuid())
   userId    String   @unique
@@ -36,6 +44,9 @@ model Achievement {
   name        String
   description String
   points      Int
+  badgeIcon   String?
+  criteriaType String // RULES: STREAK, XP, TOPIC_COUNT, QUIZ_SCORE
+  criteriaValue Int
   createdAt   DateTime @default(now())
   
   userAchievements UserAchievement[]
@@ -66,23 +77,6 @@ model BehaviorMetric {
   @@index([userId, metricType])
 }
 
-model InterventionSuccess {
-  id                String   @id @default(uuid())
-  userId            String
-  ruleId            String   // Reference to InterventionRule
-  triggeredAt       DateTime @default(now())
-  wasSuccessful     Boolean  @default(false)
-  userAction        String?  // ACCEPTED, DISMISSED, IGNORED
-  timeToAction      Int?     // Seconds until user responded
-  contextBefore     String?  // JSON: state before intervention
-  contextAfter      String?  // JSON: state after intervention
-  createdAt         DateTime @default(now())
-
-  @@index([userId])
-  @@index([ruleId])
-  @@index([userId, triggeredAt])
-  @@index([createdAt])
-}
 
 model Challenge {
   id            String   @id @default(uuid())
@@ -96,6 +90,8 @@ model Challenge {
   status        String   @default("ACTIVE") // ACTIVE, COMPLETED, EXPIRED
   isPublic      Boolean  @default(false)
   createdAt     DateTime @default(now())
+  deletedAt     DateTime?
+  archivedAt    DateTime?
   
   participants  ChallengeParticipant[]
 
@@ -134,19 +130,208 @@ model SocialShare {
   @@index([createdAt])
 }
 
-model DoomscrollEvent {
-  id                String   @id @default(uuid())
-  userId            String
-  appName           String
-  startedAt         DateTime
-  endedAt           DateTime?
-  duration          Int?     // Minutes
-  scrollDistance    Float?   // Estimated pixels scrolled
-  itemsViewed       Int?     // Estimated content items
-  interventionId    String?  // If intervention was triggered
-  wasInterrupted    Boolean  @default(false)
-  createdAt         DateTime @default(now())
+
+model UserGoal {
+  id              String   @id @default(uuid())
+  userId          String
+  title           String
+  description     String?
+  targetValue     Int      // e.g., 30 minutes daily focus time
+  currentValue    Int      @default(0)
+  unit            String   // MINUTES, HOURS, SESSIONS, CAPTURES
+  category        String   // FOCUS, LEARNING, PRODUCTIVITY, WELLNESS
+  deadline        DateTime?
+  isCompleted     Boolean  @default(false)
+  completedAt     DateTime?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 
   @@index([userId])
-  @@index([userId, startedAt])
 }
+
+model Friendship {
+  id          String   @id @default(uuid())
+  userId      String   // User who sent request
+  friendId    String   // User who received request
+  status      String   @default("PENDING") // PENDING, ACCEPTED, REJECTED, BLOCKED
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  @@unique([userId, friendId])
+  @@index([userId])
+  @@index([friendId])
+  @@index([status])
+}
+
+// --- PART 4: Viral Growth & Community Models ---
+
+model ShareEvent {
+  id          String   @id @default(uuid())
+  sourceUser  String   // User who shared
+  platform    String   // 'instagram', 'whatsapp', 'twitter', 'copy'
+  shareType   String   // 'streak', 'achievement', 'collaboration'
+  deepLink    String?
+  clicks      Int      @default(0)
+  installs    Int      @default(0)
+  createdAt   DateTime @default(now())
+
+  @@index([sourceUser])
+}
+
+model ReferralReward {
+  id            String   @id @default(uuid())
+  userId        String   // User receiving reward
+  referralUser  String?  // New user who joined (optional)
+  rewardType    String   // 'double_xp_24h', 'pro_trial', 'credits'
+  claimed       Boolean  @default(false)
+  createdAt     DateTime @default(now())
+
+  @@index([userId])
+}
+
+model Question {
+  id          String   @id @default(uuid())
+  anonId      String   // Anonymized User ID hash
+  topicId     String
+  question    String
+  aiDraft     String?
+  viewCount   Int      @default(0)
+  createdAt   DateTime @default(now())
+  
+  answers     Answer[]
+
+  @@index([topicId, createdAt])
+}
+
+model Answer {
+  id          String   @id @default(uuid())
+  questionId  String
+  anonId      String   // Anonymized User ID hash
+  answer      String
+  quality     Float    // AI-assessed quality score (0.0 - 1.0)
+  upvotes     Int      @default(0)
+  createdAt   DateTime @default(now())
+
+  question    Question @relation(fields: [questionId], references: [id])
+
+  @@index([questionId])
+  @@index([quality(sort: Desc)])
+}
+
+model AnonReputation {
+  anonId      String   @id // Primary Key is the hash itself
+  reputation  Int      @default(0)
+  answersGiven Int     @default(0)
+  avgQuality  Float    @default(0.0)
+  updatedAt   DateTime @updatedAt
+}
+
+// --- PART 5: Challenge Engine & TrueSkill Matchmaking ---
+
+model ChallengeRating {
+  userId    String
+  topicId   String  
+  mu        Float   @default(25.0)  // TrueSkill skill rating
+  sigma     Float   @default(8.333) // Uncertainty
+  games     Int     @default(0)
+  
+  @@id([userId, topicId])
+  @@index([topicId, mu])
+}
+
+model ChallengeMatch {
+  id            String   @id @default(uuid())
+  challengerId  String
+  opponentId    String  
+  topicId       String
+  status        String   @default("PENDING") // PENDING, ACTIVE, COMPLETED, EXPIRED
+  questionCount Int
+  timeLimit     Int      // seconds
+  content       String   // JSON: questions
+  createdAt     DateTime @default(now())
+  expiresAt     DateTime
+  startedAt     DateTime?
+  completedAt   DateTime?
+  
+  results       ChallengeResult[]
+  
+  @@index([challengerId])
+  @@index([opponentId])
+  @@index([status])
+}
+
+model ChallengeResult {
+  id          String   @id @default(uuid())
+  matchId     String
+  userId      String
+  score       Float    // 0.0-1.0 (accuracy * 0.7 + speed * 0.3)
+  answers     String   // JSON
+  submittedAt DateTime @default(now())
+  
+  match       ChallengeMatch @relation(fields: [matchId], references: [id])
+  
+  @@index([matchId])
+  @@index([userId])
+}
+
+// --- PART 5: Social Graph & Verifiable Results ---
+
+model SocialGraph {
+  id         String   @id @default(uuid())
+  followerId String
+  targetId   String
+  topics     String[] // Topic-specific follows
+  createdAt  DateTime @default(now())
+  
+  @@unique([followerId, targetId])
+  @@index([targetId])
+  @@index([followerId])
+}
+
+model PrivacySettings {
+  userId                String   @id
+  profileVisibility     String   @default("PUBLIC") // PUBLIC, FOLLOWERS, PRIVATE
+  showMockResults       String   @default("FOLLOWERS")
+  showChallengeHistory  String   @default("NOBODY")
+  showStreak            String   @default("PUBLIC")
+  whoCanFollow          String   @default("ANYONE")
+  allowFollowerNotif    Boolean  @default(true)
+  updatedAt             DateTime @updatedAt
+}
+
+model BlockList {
+  userId    String
+  blockedId String
+  createdAt DateTime @default(now())
+  
+  @@id([userId, blockedId])
+  @@index([userId])
+}
+
+model SharedResult {
+  shareId     String   @id @default(uuid())
+  resultId    String
+  resultType  String   // CHALLENGE, MOCK_TEST, ACHIEVEMENT
+  visibility  String   // PUBLIC, UNLISTED
+  accessCount Int      @default(0)
+  createdAt   DateTime @default(now())
+  expiresAt   DateTime?
+  
+  @@index([resultId])
+  @@index([shareId])
+}
+
+model ResultProof {
+  id            String   @id @default(uuid())
+  resultId      String   @unique
+  userId        String
+  merkleRoot    String
+  proofData     String   // JSON: ZK proof metadata
+  integrityCheck String  // Verification checksum
+  verified      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  
+  @@index([userId])
+}
+
+

@@ -1,9 +1,13 @@
-import kafkaClient from './kafka';
-import { prisma } from './prisma';
+import { createLogger } from '@shared/index.ts';
+import kafkaClient from './kafka.ts';
+import prisma from './prisma.ts';
 import type { EachMessagePayload } from 'kafkajs';
 
-const SOCIAL_MEDIA_APPS = ['Instagram', 'Twitter', 'Facebook', 'TikTok', 'Reddit', 'Snapchat'];
 const DOOMSCROLL_THRESHOLD_SECONDS = 300; // 5 minutes
+
+const logger = createLogger('doomscroll-detector');
+
+const SOCIAL_MEDIA_APPS = ['Instagram', 'Twitter', 'Facebook', 'TikTok', 'Reddit', 'Snapchat'];
 
 interface ScreenUsageEvent {
   userId: string;
@@ -16,12 +20,12 @@ interface ScreenUsageEvent {
 
 export async function startDoomscrollDetector() {
   // Use the KafkaClient's consume method instead of raw Kafka consumer
-  await kafkaClient.consume('doomscroll-detector', 'SCREEN_USAGE_LOGGED', async (message: any) => {
+  await kafkaClient.consume('doomscroll-detector', 'SCREEN_USAGE_LOGGED', async (message: ScreenUsageEvent) => {
     const event: ScreenUsageEvent = message;
     await analyzeDoomscroll(event);
   });
   
-  console.log('🔍 Doomscroll Detector started');
+  logger.info('🔍 Doomscroll Detector started');
 }
 
 async function analyzeDoomscroll(event: ScreenUsageEvent) {
@@ -54,6 +58,7 @@ async function analyzeDoomscroll(event: ScreenUsageEvent) {
 
   // Simple heuristic: if this single session is > 5 minutes, trigger
   if (duration >= DOOMSCROLL_THRESHOLD_SECONDS) {
+    logger.info(`Doomscroll detected for user ${userId} on ${appName}. Duration: ${duration}s`);
     await createIntervention(userId, appName);
   }
 }
@@ -86,14 +91,17 @@ async function createIntervention(userId: string, detectedApp: string) {
     },
   });
 
-  console.log(`🚨 Intervention created for user ${userId} (detected ${detectedApp})`);
+  logger.info(`🚨 Intervention created for user ${userId} (detected ${detectedApp})`);
 
   // Publish event for Notification Service
-  await kafkaClient.send('INTERVENTION_TRIGGERED', [{
-    userId,
-    interventionId: intervention.id,
-    detectedApp,
-    contentType: intervention.contentType,
-    contentPreview: intervention.contentPreview,
+  await kafkaClient.send('learning-events', [{
+    type: 'INTERVENTION_TRIGGERED',
+    data: {
+      userId,
+      interventionId: intervention.id,
+      detectedApp,
+      contentType: intervention.contentType,
+      contentPreview: intervention.contentPreview,
+    }
   }]);
 }

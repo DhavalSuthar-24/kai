@@ -217,6 +217,54 @@ export const EMAIL_TEMPLATES = {
       </html>
     `,
   },
+
+  VERIFICATION_EMAIL: {
+    subject: 'Verify your email for Kai',
+    body: `
+      <html>
+        <body style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+          <h1 style="color: #4F46E5;">Verify your email</h1>
+          <p>Hi {{userName}},</p>
+          <p>Please verify your email address to get full access to Kai.</p>
+          
+          <a href="{{verificationUrl}}" style="display: inline-block; background-color: #4F46E5; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; margin: 20px 0;">
+            Verify Email
+          </a>
+          
+          <p>Or copy this link: {{verificationUrl}}</p>
+          
+          <p style="color: #666; font-size: 12px; margin-top: 40px;">
+            If you didn't create an account, you can ignore this email.
+          </p>
+        </body>
+      </html>
+    `,
+  },
+
+  PASSWORD_RESET: {
+    subject: 'Reset your password for Kai',
+    body: `
+      <html>
+        <body style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+          <h1 style="color: #EF4444;">Reset your password</h1>
+          <p>Hi {{userName}},</p>
+          <p>We received a request to reset your password. Click the button below to choose a new one.</p>
+          
+          <a href="{{resetUrl}}" style="display: inline-block; background-color: #EF4444; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; margin: 20px 0;">
+            Reset Password
+          </a>
+          
+          <p>Or copy this link: {{resetUrl}}</p>
+          
+          <p>This link will expire in 15 minutes.</p>
+          
+          <p style="color: #666; font-size: 12px; margin-top: 40px;">
+            If you didn't request a password reset, you can safely ignore this email.
+          </p>
+        </body>
+      </html>
+    `,
+  },
 };
 
 // Export template names for easy reference

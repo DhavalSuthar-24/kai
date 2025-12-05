@@ -7,7 +7,18 @@ import { NotificationType } from '../types/notifications.ts';
 
 const logger = createLogger('reminder-consumer');
 
-export const handleReminders = async (message: any) => {
+interface ReminderEvent {
+  type: 'FLASHCARD_DUE' | 'STREAK_WARNING';
+  data: {
+    userId: string;
+    count?: number;
+    streak?: number;
+    userName?: string;
+    email: string;
+  };
+}
+
+export const handleReminders = async (message: ReminderEvent) => {
   try {
     const { type, data } = message;
 
@@ -18,7 +29,7 @@ export const handleReminders = async (message: any) => {
       await pushQueue.add('flashcard-due', {
         userId: data.userId,
         title: 'Time to Review!',
-        body: `You have ${data.count} flashcard${data.count > 1 ? 's' : ''} due for review.`,
+        body: `You have ${data.count} flashcard${(data.count || 0) > 1 ? 's' : ''} due for review.`,
         type: NotificationType.FLASHCARD_DUE,
         data: {
           type: 'FLASHCARD_DUE',
@@ -26,7 +37,7 @@ export const handleReminders = async (message: any) => {
         },
       });
 
-                                    // Also send email
+      // Also send email
       const template = EMAIL_TEMPLATES.FLASHCARD_DUE;
       const variables = {
         userName: data.userName || 'there',

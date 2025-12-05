@@ -22,6 +22,11 @@ export const markMemoryViewed = asyncHandler(async (req: AuthRequest, res: Respo
   }
 
   const { id } = req.params;
+  if (!id) {
+    res.status(400).json(errorResponse('Missing memory ID', 400));
+    return;
+  }
+
   const updated = await memoryService.markAsViewed(id, userId as string);
   
   res.json(successResponse(updated, 'Memory marked as viewed'));

@@ -12,6 +12,7 @@ export interface PushNotificationPayload {
   actionButtons?: Array<{
     title: string;
     action: string;
+    icon?: string;
   }>;
 }
 
@@ -71,6 +72,8 @@ export class FirebaseService {
           notification: {
             sound: 'default',
             clickAction: 'FLUTTER_NOTIFICATION_CLICK',
+            // Map action buttons to Android actions if provided
+            // Note: This is a simplified mapping. Real implementation might need more details.
           },
         },
         apns: {
@@ -78,10 +81,18 @@ export class FirebaseService {
             aps: {
               sound: 'default',
               badge: 1,
+              category: payload.actionButtons ? 'WITH_ACTIONS' : undefined,
             },
           },
         },
       };
+
+      // If action buttons exist, we might need to pass them in data for the client to handle
+      // or configure platform specific fields. For now, let's pass them in data.
+      if (payload.actionButtons) {
+        if (!message.data) message.data = {};
+        message.data.actions = JSON.stringify(payload.actionButtons);
+      }
 
       const messageId = await admin.messaging().send(message);
 
@@ -94,16 +105,17 @@ export class FirebaseService {
         success: true,
         messageId,
       };
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const err = error as { message: string; code?: string };
       logger.error('Failed to send push notification', {
         token: token.substring(0, 20) + '...',
-        error: error.message,
-        code: error.code,
+        error: err.message,
+        code: err.code,
       });
 
       // Check if token is invalid
-      if (error.code === 'messaging/invalid-registration-token' ||
-          error.code === 'messaging/registration-token-not-registered') {
+      if (err.code === 'messaging/invalid-registration-token' ||
+          err.code === 'messaging/registration-token-not-registered') {
         return {
           success: false,
           error: 'INVALID_TOKEN',
@@ -112,7 +124,7 @@ export class FirebaseService {
 
       return {
         success: false,
-        error: error.message || 'Unknown error',
+        error: err.message || 'Unknown error',
       };
     }
   }
@@ -200,7 +212,7 @@ export class FirebaseService {
         failureCount: response.failureCount,
         invalidTokens,
       };
-    } catch (error: any) {
+    } catch (error: unknown) {
       logger.error('Failed to send multicast push notification', error);
       return {
         successCount: 0,

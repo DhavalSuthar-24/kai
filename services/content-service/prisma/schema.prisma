@@ -1,6 +1,7 @@
 generator client {
-  provider = "prisma-client-js"
+  provider = "prisma-client"
   output   = "./generated"
+  previewFeatures = ["fullTextSearch"]
 }
 
 datasource db {
@@ -28,10 +29,23 @@ model Capture {
   ocrStatus       String   @default("PENDING") // PENDING, PROCESSING, COMPLETED, FAILED
   processingError String?  // Error message if OCR/AI processing fails
   
+  // Video Processing Fields
+  videoStatus     String?  // PENDING, PROCESSING, COMPLETED, FAILED
+  transcription   String?  // Full video transcription
+  
+  tags            Tag[]
+  
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
+  deletedAt       DateTime?
+  archivedAt      DateTime?
 
   @@index([userId])
+  @@index([type])
+  @@index([status])
+  @@index([aiProcessed])
+  @@index([createdAt(sort: Desc)])
+  @@index([userId, createdAt(sort: Desc)])
   @@index([userId, importanceScore])
   @@index([ocrStatus])
 }
@@ -89,17 +103,128 @@ model ContentRanking {
   @@index([userId, isEssential])
 }
 
-model ScreenUsageLog {
-  id          String   @id @default(uuid())
-  userId      String
-  appName     String   // e.g., "Instagram", "Twitter", "VSCode"
-  category    String?  // SOCIAL_MEDIA, PRODUCTIVITY, ENTERTAINMENT
-  duration    Int      // Seconds
-  timestamp   DateTime @default(now())
-  metadata    String?  // JSON: additional context (scroll distance, interactions)
-  createdAt   DateTime @default(now())
 
-  @@index([userId, timestamp])
-  @@index([userId, appName])
-  @@index([timestamp])
+
+model Tag {
+  id        String   @id @default(uuid())
+  name      String
+  userId    String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  captures  Capture[]
+
+  @@unique([userId, name])
+  @@index([userId, name])
+  @@index([userId])
+}
+
+model DocumentUpload {
+  id                String   @id @default(uuid())
+  userId            String
+  fileName          String
+  fileType          String   // pdf, docx, txt, etc.
+  fileSize          Int
+  storageUrl        String
+  status            String   @default("UPLOADED") // UPLOADED, PROCESSING, COMPLETED, FAILED
+  processingProgress Int     @default(0)
+  errorMessage      String?
+  metadata          String?  // JSON: pageCount, author, etc.
+  
+  processedDocument ProcessedDocument?
+  
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@index([userId])
+  @@index([status])
+}
+
+model ProcessedDocument {
+  id              String   @id @default(uuid())
+  uploadId        String   @unique
+  
+  // Structured Content
+  structure       String   // JSON: chapters, sections
+  topics          String   // JSON: extracted topics
+  
+  // Generated Learning Content
+  curriculum      String?  // JSON
+  flashcards      String?  // JSON
+  questions       String?  // JSON
+  
+  // Analytics
+  wordCount       Int      @default(0)
+  readingTime     Int      @default(0)
+  difficultyScore Float    @default(0.0)
+  
+  upload          DocumentUpload @relation(fields: [uploadId], references: [id])
+  chunks          DocumentChunk[]
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+model DocumentChunk {
+  id              String   @id @default(uuid())
+  processedDocId  String
+  content         String
+  pageNumber      Int?
+  embedding       Unsupported("vector(1536)")? // Using pgvector if available
+  metadata        String?  // JSON
+  
+  processedDoc    ProcessedDocument @relation(fields: [processedDocId], references: [id])
+  
+  createdAt       DateTime @default(now())
+  
+  @@index([processedDocId])
+}
+
+// --- PART 4: Content Marketplace Models ---
+
+model StudyPack {
+  id              String   @id @default(uuid())
+  creatorId       String   // Anonymous Creator ID (or User ID if public)
+  name            String
+  description     String
+  topics          String[] // Array of strings
+  quality         Float    @default(0.0) // AI Assessed Quality
+  price           Int      // In cents (or credits)
+  purchaseCount   Int      @default(0)
+  encryptedContent String  // JSON (encrypted)
+  
+  // Optional: Embedding for semantic search (requires vector extension setup)
+  // embedding    Unsupported("vector(1536)")? 
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([creatorId])
+  @@index([quality(sort: Desc)])
+}
+
+model UserPack {
+  userId          String
+  packId          String
+  purchasedAt     DateTime @default(now())
+  
+  // We can add relation to StudyPack if needed, but keeping it loose for microservice independence
+  // For strict integrity, we should relate it:
+  // pack        StudyPack @relation(fields: [packId], references: [id])
+
+  @@id([userId, packId])
+  @@index([userId])
+}
+
+model RevenueTransaction {
+  id              String   @id @default(uuid())
+  fromUser        String
+  toCreator       String
+  packId          String
+  amount          Int
+  platformFee     Int
+  status          String   @default("COMPLETED") // COMPLETED, PENDING, REFUNDED
+  createdAt       DateTime @default(now())
+
+  @@index([toCreator])
+  @@index([createdAt])
 }

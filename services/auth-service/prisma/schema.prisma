@@ -1,8 +1,6 @@
 generator client {
   provider = "prisma-client"
   output   = "./generated"
-  engineType = "client"
-  runtime = "bun"
 }
 
 datasource db {
@@ -18,25 +16,40 @@ model User {
   role              String   @default("USER") // USER, ADMIN
   isVerified        Boolean  @default(false)
   verificationToken String?
+  verificationTokenExpiry DateTime?
+  resetToken        String?
+  resetTokenExpiry  DateTime?
+  provider          String?  // google, github, etc.
+  providerId        String?
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
+  deletedAt         DateTime?
+  archivedAt        DateTime?
+  publicKey         String?  // For E2EE data export
+
+  @@index([email])
+  @@index([provider, providerId])
+}
+
+model RefreshToken {
+  id         String    @id @default(uuid())
+  userId     String
+  token      String    @unique // Hashed SHA256
+  expiresAt  DateTime
+  createdAt  DateTime  @default(now())
+  isRevoked  Boolean   @default(false)
+  revokedAt  DateTime?
+
+  @@index([userId])
+  @@index([token])
 }
 
 model UserPreferences {
   id                      String   @id @default(uuid())
   userId                  String   @unique
   
-  // Global notification toggles
-  notificationsEnabled    Boolean  @default(true)
-  emailNotifications      Boolean  @default(true)
-  pushNotifications       Boolean  @default(true)
-  
-  // Granular notification type preferences
-  kaizenReminders         Boolean  @default(true)  // Due flashcard reminders
-  doomscrollAlerts        Boolean  @default(true)  // Doomscroll interventions
-  memoryOfDay             Boolean  @default(true)  // Daily memory insights
-  friendChallenges        Boolean  @default(true)  // Friend activity updates
-  weeklyInsights          Boolean  @default(true)  // Weekly summary emails
+  // Global notification toggles - MOVED TO notification-service
+  // Granular notification type preferences - MOVED TO notification-service
   
   // Other preferences
   focusModeDefault        String?  // Default focus mode ID
@@ -47,54 +60,5 @@ model UserPreferences {
   updatedAt               DateTime @updatedAt
 }
 
-model UserGoal {
-  id              String   @id @default(uuid())
-  userId          String
-  title           String
-  description     String?
-  targetValue     Int      // e.g., 30 minutes daily focus time
-  currentValue    Int      @default(0)
-  unit            String   // MINUTES, HOURS, SESSIONS, CAPTURES
-  category        String   // FOCUS, LEARNING, PRODUCTIVITY, WELLNESS
-  deadline        DateTime?
-  isCompleted     Boolean  @default(false)
-  completedAt     DateTime?
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
 
-  @@index([userId])
-}
 
-model FocusMode {
-  id                String   @id @default(uuid())
-  userId            String
-  name              String   // e.g., "Deep Work", "Study Time"
-  description       String?
-  duration          Int      // Duration in minutes
-  blockedApps       String   // JSON array of app identifiers
-  allowedApps       String   // JSON array of app identifiers
-  isActive          Boolean  @default(false)
-  startedAt         DateTime?
-  endedAt           DateTime?
-  totalSessions     Int      @default(0)
-  totalMinutes      Int      @default(0)
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
-
-  @@index([userId])
-  @@index([createdAt])
-}
-
-model Friendship {
-  id          String   @id @default(uuid())
-  userId      String   // User who sent request
-  friendId    String   // User who received request
-  status      String   @default("PENDING") // PENDING, ACCEPTED, REJECTED, BLOCKED
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  
-  @@unique([userId, friendId])
-  @@index([userId])
-  @@index([friendId])
-  @@index([status])
-}

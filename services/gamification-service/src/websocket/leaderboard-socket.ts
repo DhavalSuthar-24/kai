@@ -29,9 +29,8 @@ export function initializeLeaderboardSocket(httpServer: HTTPServer) {
         const globalLeaderboard = await getGlobalLeaderboard();
         socket.emit('leaderboard:update', { type: 'GLOBAL', data: globalLeaderboard });
       } else if (data.type === 'FRIENDS' && data.userId) {
-        // TODO: Implement friend leaderboard fetching
-        // const friendLeaderboard = await getFriendLeaderboard(data.userId);
-        // socket.emit('leaderboard:update', { type: 'FRIENDS', data: friendLeaderboard });
+        const friendLeaderboard = await getFriendLeaderboard(data.userId);
+        socket.emit('leaderboard:update', { type: 'FRIENDS', data: friendLeaderboard });
       }
     });
 
@@ -48,20 +47,43 @@ export function getIO(): SocketServer | null {
   return io;
 }
 
-// Helper to fetch global leaderboard (simplified)
+import { leaderboardService } from '../services/leaderboard.service.ts';
+
+// Helper to fetch global leaderboard
 async function getGlobalLeaderboard() {
-  const users = await prisma.userProgress.findMany({
+  return await leaderboardService.getGlobalLeaderboard(10);
+}
+
+async function getFriendLeaderboard(userId: string) {
+  // 1. Get friend IDs
+  const friendships = await prisma.friendship.findMany({
+    where: {
+      OR: [
+        { userId: userId, status: 'ACCEPTED' },
+        { friendId: userId, status: 'ACCEPTED' }
+      ]
+    }
+  });
+
+  const friendIds = friendships.map(f => f.userId === userId ? f.friendId : f.userId);
+  friendIds.push(userId); // Include self
+
+  // 2. Get progress for friends + self
+  const leaderboard = await prisma.userProgress.findMany({
+    where: {
+      userId: { in: friendIds }
+    },
     orderBy: { points: 'desc' },
-    take: 10,
+    take: 20,
     select: {
       userId: true,
       points: true,
       level: true,
       streak: true
-      // Note: We might need to fetch user names from Auth Service or cache them
     }
   });
-  return users;
+
+  return leaderboard;
 }
 
 export function emitLeaderboardUpdate(type: 'GLOBAL' | 'FRIENDS', data: any, userId?: string) {

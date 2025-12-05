@@ -7,7 +7,21 @@ import { NotificationType } from '../types/notifications.ts';
 
 const logger = createLogger('friend-consumer');
 
-export const handleFriendEvents = async (message: any) => {
+interface FriendEvent {
+  type: 'FRIEND_CHALLENGE';
+  data: {
+    userId: string;
+    friendName: string;
+    friendId: string;
+    challengeId: string;
+    challengeDescription: string;
+    challengeGoal: string;
+    userName?: string;
+    email: string;
+  };
+}
+
+export const handleFriendEvents = async (message: FriendEvent) => {
   try {
     const { type, data } = message;
 

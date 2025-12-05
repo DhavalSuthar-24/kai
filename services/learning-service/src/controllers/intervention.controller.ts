@@ -38,7 +38,36 @@ export const respondToIntervention = asyncHandler(async (req: AuthRequest, res: 
     return;
   }
 
+  if (!id) {
+    res.status(400).json(errorResponse('Missing intervention ID', 400));
+    return;
+  }
+
   const updated = await interventionService.handleResponse(id, userId as string, response);
 
   res.json(successResponse(updated, 'Intervention response recorded'));
+});
+
+export const recordInterventionResponse = asyncHandler(async (req: AuthRequest, res: Response) => {
+  const userId = req.user?.id;
+  if (!userId) {
+    res.status(401).json(errorResponse('Unauthorized', 401));
+    return;
+  }
+
+  const { ruleId, userAction, timeToAction, contextBefore, contextAfter } = req.body;
+
+  const intervention = await prisma.interventionSuccess.create({
+    data: {
+      userId,
+      ruleId,
+      userAction,
+      timeToAction,
+      wasSuccessful: userAction === 'ACCEPTED',
+      contextBefore: contextBefore ? JSON.stringify(contextBefore) : null,
+      contextAfter: contextAfter ? JSON.stringify(contextAfter) : null
+    }
+  });
+
+  res.status(201).json(successResponse(intervention, 'Intervention response recorded'));
 });

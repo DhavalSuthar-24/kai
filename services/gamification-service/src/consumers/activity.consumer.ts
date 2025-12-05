@@ -1,9 +1,9 @@
 import { createLogger } from '@shared/index.ts';
 import { challengeService } from '../services/challenge.service.ts';
-import { RulesEngine } from '../services/rules-engine.ts';
+import { GamificationService } from '../services/gamification.service.ts';
 
 const logger = createLogger('activity-consumer');
-const rulesEngine = new RulesEngine();
+const gamificationService = new GamificationService();
 
 export const handleActivityEvent = async (message: any) => {
   try {
@@ -11,8 +11,8 @@ export const handleActivityEvent = async (message: any) => {
 
     const { userId, payload } = message;
     
-    // 1. Process Rules (Points, Badges)
-    await rulesEngine.processEvent(userId, message.type, payload || message.data);
+    // 1. Process Core Gamification (XP, Levels, Achievements)
+    await gamificationService.processEvent(userId, message.type, payload || message.data);
 
     // 2. Process Challenges
     switch (message.type) {
@@ -27,6 +27,15 @@ export const handleActivityEvent = async (message: any) => {
         if (duration > 0) {
           await challengeService.updateProgress(userId, 'FOCUS_TIME', duration);
         }
+        break;
+        
+      case 'TOPIC_COMPLETED':
+        await challengeService.updateProgress(userId, 'TOPICS', 1);
+        break;
+
+      case 'CONTENT_CAPTURED':
+        // Award points for capturing content (e.g., 5 points per capture)
+        // Handled by processEvent now
         break;
 
       default:

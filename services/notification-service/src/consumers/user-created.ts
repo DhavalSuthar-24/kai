@@ -6,7 +6,16 @@ import { NotificationType } from '../types/notifications.ts';
 
 const logger = createLogger('user-created-consumer');
 
-export const handleUserCreated = async (message: any) => {
+interface UserCreatedEvent {
+  type: 'USER_CREATED';
+  data: {
+    id: string;
+    email: string;
+    name?: string;
+  };
+}
+
+export const handleUserCreated = async (message: UserCreatedEvent) => {
   try {
     const { type, data } = message;
 

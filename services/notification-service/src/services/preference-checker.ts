@@ -85,17 +85,23 @@ export class PreferenceChecker {
     preferences: UserPreferences
   ): PreferenceCheckResult {
     const typeMapping: Record<NotificationType, keyof UserPreferences | null> = {
+      [NotificationType.SYSTEM]: null, // Always allowed
+      [NotificationType.STREAK_REMINDER]: 'kaizenReminders',
       [NotificationType.KAIZEN_REMINDER]: 'kaizenReminders',
-      [NotificationType.FLASHCARD_DUE]: 'kaizenReminders', // Same as kaizen reminders
+      [NotificationType.FLASHCARD_DUE]: 'kaizenReminders',
       [NotificationType.DOOMSCROLL_INTERVENTION]: 'doomscrollAlerts',
       [NotificationType.MEMORY_OF_DAY]: 'memoryOfDay',
       [NotificationType.FRIEND_CHALLENGE]: 'friendChallenges',
+      [NotificationType.LEADERBOARD_UPDATE]: 'friendChallenges',
+      [NotificationType.ACHIEVEMENT_UNLOCKED]: 'friendChallenges',
+      [NotificationType.FOCUS_SESSION_COMPLETE]: 'kaizenReminders',
+      [NotificationType.VERIFICATION_EMAIL]: null,
+      [NotificationType.PASSWORD_RESET]: null,
+      [NotificationType.LEVEL_UP]: 'friendChallenges', // Group under friend/gamification
+      [NotificationType.CHALLENGE_INVITE]: 'friendChallenges',
       [NotificationType.WEEKLY_INSIGHTS]: 'weeklyInsights',
       [NotificationType.WELCOME_EMAIL]: null, // Always allowed
       [NotificationType.STREAK_WARNING]: 'kaizenReminders', // Same as kaizen reminders
-      [NotificationType.LEVEL_UP]: 'friendChallenges', // Group under friend/gamification
-      [NotificationType.ACHIEVEMENT_UNLOCKED]: 'friendChallenges', // Group under friend/gamification
-      [NotificationType.CHALLENGE_INVITE]: 'friendChallenges',
     };
 
     const preferenceKey = typeMapping[type];

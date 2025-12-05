@@ -41,7 +41,7 @@ export class SendGridService {
     }
 
     try {
-      const msg: any = {
+      const msg: sgMail.MailDataRequired = {
         to,
         from: this.fromEmail,
         subject,
@@ -68,17 +68,18 @@ export class SendGridService {
         success: true,
         messageId: response.headers['x-message-id'] as string,
       };
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const err = error as any; // Cast for now as SendGrid error structure is complex
       logger.error('Failed to send email', {
         to,
         subject,
-        error: error.message,
-        code: error.code,
+        error: err.message,
+        code: err.code,
       });
 
       return {
         success: false,
-        error: error.message || 'Unknown error',
+        error: err.message || 'Unknown error',
       };
     }
   }

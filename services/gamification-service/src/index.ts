@@ -11,11 +11,18 @@ import {
   createCorsMiddleware,
   createHelmetMiddleware,
   createRateLimiter,
-  errorHandler 
+  errorHandler,
+  initializeSentry,
+  createMetricsCollector
 } from '@shared/index.ts';
 import gamificationRoutes from './routes/gamification.routes.ts';
+import socialRoutes from './routes/social.routes.ts';
+import challengeRoutes from './routes/challenge.routes.ts';
 
 const logger = createLogger('gamification-service');
+
+// Initialize Sentry for error tracking
+initializeSentry({ serviceName: 'gamification-service' });
 
 // Validate environment configuration on startup
 try {
@@ -29,11 +36,18 @@ try {
 const app = express();
 const PORT = process.env.PORT || 3004;
 
+// Metrics collector
+const metrics = createMetricsCollector('gamification_service');
+
 // Security middleware
 app.use(correlationIdMiddleware);
 app.use(createHelmetMiddleware());
 app.use(createCorsMiddleware());
 app.use(express.json());
+
+// Metrics middleware (before routes)
+app.use(metrics.middleware());
+
 app.use(createRateLimiter());
 
 import kafkaClient from './kafka.ts';
@@ -49,6 +63,14 @@ app.use((req, res, next) => {
 });
 
 app.use('/gamification', gamificationRoutes);
+app.use('/social', socialRoutes);
+app.use('/challenges', challengeRoutes);
+
+// Metrics endpoint
+app.get('/metrics', async (req, res) => {
+  res.set('Content-Type', metrics.registry.contentType);
+  res.end(await metrics.getMetrics());
+});
 
 // Health check endpoint
 import prisma from './prisma.ts';
@@ -69,23 +91,23 @@ const startServer = async () => {
     // Initialize WebSocket
     initializeLeaderboardSocket(httpServer);
 
-    await kafkaClient.connectProducer().catch((err: any) => {
+    await kafkaClient.connectProducer().catch((err: unknown) => {
         logger.error('Failed to connect to Kafka Producer', err);
     });
 
     // Subscribe to learning-events
-    await kafkaClient.consume('gamification-group', 'learning-events', handleActivityEvent).catch((err: any) => {
+    await kafkaClient.consume('gamification-group', 'learning-events', handleActivityEvent).catch((err: unknown) => {
         logger.error('Failed to subscribe to Kafka topic learning-events', err);
     });
 
     // Subscribe to focus-events
-    await kafkaClient.consume('gamification-group', 'focus-events', handleActivityEvent).catch((err: any) => {
+    await kafkaClient.consume('gamification-group', 'focus-events', handleActivityEvent).catch((err: unknown) => {
         logger.error('Failed to subscribe to Kafka topic focus-events', err);
     });
 
     // Subscribe to user-events
     await import('./consumers/user-consumer.ts').then(async (module) => {
-        await kafkaClient.consume('gamification-group', 'user-events', module.handleUserCreated).catch((err: any) => {
+        await kafkaClient.consume('gamification-group', 'user-events', module.handleUserCreated).catch((err: unknown) => {
             logger.error('Failed to subscribe to Kafka topic', err);
         });
     });

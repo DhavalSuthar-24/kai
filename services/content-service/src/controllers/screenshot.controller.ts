@@ -1,4 +1,4 @@
-import type { Response } from 'express';
+import type { Request, Response } from 'express';
 import type { AuthRequest } from '@shared/index';
 import { prisma } from '../prisma';
 import { successResponse } from '@shared/index';
@@ -26,7 +26,9 @@ const storage = multer.diskStorage({
   }
 });
 
-const fileFilter = (req: any, file: any, cb: any) => {
+import type { FileFilterCallback } from 'multer';
+
+const fileFilter = (_req: any, file: Express.Multer.File, cb: FileFilterCallback) => {
   const allowedTypes = ['image/png', 'image/jpeg', 'image/jpg'];
   if (allowedTypes.includes(file.mimetype)) {
     cb(null, true);
@@ -87,9 +89,20 @@ export const uploadScreenshot = asyncHandler(async (req: AuthRequest, res: Respo
   // In a real production setup with ephemeral instances, we'd need to download from R2 if not local.
   const processingFilePath = filePath; 
   
-  processingService.processCapture(capture.id, processingFilePath, userId).catch((err: any) => {
+  processingService.processCapture(capture.id, processingFilePath, userId).catch((err: unknown) => {
     console.error('Processing pipeline error:', err);
   });
+
+  // Emit SCREENSHOT_UPLOADED event
+  await kafkaClient.send('screenshot-processor', [{
+    type: 'SCREENSHOT_UPLOADED',
+    payload: {
+      captureId: capture.id,
+      userId,
+      filePath: processingFilePath,
+      timestamp: new Date().toISOString()
+    }
+  }]);
 
   res.json(successResponse({
     id: capture.id,

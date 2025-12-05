@@ -3,23 +3,27 @@ import { createLogger } from '@shared/index.ts';
 import { achievementService } from './achievement.service.ts';
 import kafkaClient from '../kafka.ts';
 import { emitLeaderboardUpdate } from '../websocket/leaderboard-socket.ts';
+import { leaderboardService } from './leaderboard.service.ts';
 
 const logger = createLogger('rules-engine');
 
 export class RulesEngine {
-  async processEvent(userId: string, eventType: string, data: any) {
+  async processEvent(userId: string, eventType: string, data: Record<string, any>) {
     logger.info('Processing gamification event', { userId, eventType });
 
     let points = 0;
     let actions = 0;
 
+    const POINTS_TOPIC_COMPLETED = 50;
+    const POINTS_FLASHCARD_REVIEWED = 10;
+
     switch (eventType) {
       case 'TOPIC_COMPLETED':
-        points = 50;
+        points = POINTS_TOPIC_COMPLETED;
         actions = 1;
         break;
       case 'FLASHCARD_REVIEWED':
-        points = 10;
+        points = POINTS_FLASHCARD_REVIEWED;
         actions = 1;
         break;
       default:
@@ -37,15 +41,18 @@ export class RulesEngine {
   }
 
   private async awardPoints(userId: string, points: number) {
-    await prisma.userProgress.upsert({
+    const progress = await prisma.userProgress.upsert({
       where: { userId },
       update: { points: { increment: points } },
       create: { userId, points },
     });
     logger.info('Points awarded', { userId, points });
     
+    // Update Redis
+    await leaderboardService.updateScore(userId, progress.points);
+    
     // Emit real-time leaderboard update
-    emitLeaderboardUpdate('GLOBAL', { userId, points });
+    emitLeaderboardUpdate('GLOBAL', { userId, points: progress.points });
   }
 
   private async logDailyActivity(userId: string, points: number, actions: number) {

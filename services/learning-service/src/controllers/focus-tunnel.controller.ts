@@ -45,12 +45,15 @@ export const endFocus = asyncHandler(async (req: AuthRequest, res: Response) => 
   const session = await endFocusSession(sessionId);
 
   // Publish event for gamification
-  await kafkaClient.send('FOCUS_SESSION_COMPLETED', [{
-    userId,
-    sessionId: session.id,
-    duration: session.actualDuration,
-    interruptions: session.interruptions,
-    pomodoroCount: session.pomodoroCount
+  await kafkaClient.send('focus-events', [{
+    type: 'FOCUS_SESSION_COMPLETED',
+    data: {
+      userId,
+      sessionId: session.id,
+      duration: session.actualDuration,
+      interruptions: session.interruptions,
+      pomodoroCount: session.pomodoroCount
+    }
   }]);
 
   res.json(successResponse(session, 'Focus session completed'));

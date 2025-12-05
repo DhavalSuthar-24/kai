@@ -26,3 +26,7 @@ export const focusModeSchema = z.object({
   blockedApps: z.array(z.string()),
   allowedApps: z.array(z.string()),
 });
+
+export const friendRequestSchema = z.object({
+  friendEmail: z.string().email(),
+});

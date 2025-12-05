@@ -2,7 +2,7 @@ version: '3.8'
 
 services:
   postgres:
-    image: postgres:16-alpine
+    image: timescale/timescaledb:latest-pg16
     container_name: postgres
     environment:
       POSTGRES_USER: postgres
@@ -48,6 +48,22 @@ services:
     container_name: redis
     ports:
       - "6379:6379"
+  ai-service:
+    build:
+      context: .
+      dockerfile: services/ai-service/Dockerfile
+    container_name: ai-service
+    ports:
+      - "3006:3006"
+    environment:
+      - KAFKA_BOOTSTRAP_SERVERS=kafka:29092
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+    depends_on:
+      kafka:
+        condition: service_started
+      redis:
+        condition: service_started
   # Services run locally
   # auth-service:
   #   build:

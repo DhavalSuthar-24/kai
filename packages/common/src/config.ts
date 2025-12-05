@@ -9,6 +9,8 @@ const envSchema = z.object({
   RATE_LIMIT_MAX_REQUESTS: z.string().default('100').transform(Number),
   SENTRY_DSN: z.string().optional(),
   LOG_LEVEL: z.enum(['error', 'warn', 'info', 'debug']).default('info'),
+  REDIS_HOST: z.string().default('localhost'),
+  REDIS_PORT: z.string().default('6379'),
 });
 
 export type Config = z.infer<typeof envSchema>;

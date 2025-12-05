@@ -7,7 +7,17 @@ import { NotificationType } from '../types/notifications.ts';
 
 const logger = createLogger('doomscroll-consumer');
 
-export const handleDoomscroll = async (message: any) => {
+interface DoomscrollEvent {
+  type: 'DOOMSCROLL_DETECTED';
+  data: {
+    userId: string;
+    appName: string;
+    userName?: string;
+    email: string;
+  };
+}
+
+export const handleDoomscroll = async (message: DoomscrollEvent) => {
   try {
     const { type, data } = message;
 
@@ -31,11 +41,12 @@ export const handleDoomscroll = async (message: any) => {
 
       // Also send email
       const template = EMAIL_TEMPLATES.DOOMSCROLL_INTERVENTION;
+      const appUrl = process.env.APP_URL || 'http://localhost:3000';
       const variables = {
         userName: data.userName || 'there',
         appName: data.appName,
-        actionUrl: `${process.env.APP_URL || 'http://localhost:3000'}/review`,
-        unsubscribeUrl: `${process.env.APP_URL || 'http://localhost:3000'}/unsubscribe/${data.userId}`,
+        actionUrl: `${appUrl}/review`,
+        unsubscribeUrl: `${appUrl}/unsubscribe/${data.userId}`,
       };
 
       const htmlBody = TemplateRenderer.render(template.body, variables);

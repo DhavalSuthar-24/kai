@@ -1,4 +1,4 @@
-import { GoogleGenerativeAI } from '@google/generative-ai';
+import { GoogleGenerativeAI, GenerativeModel } from '@google/generative-ai';
 import { createLogger } from '@shared/index.ts';
 
 const logger = createLogger('ai-service');
@@ -13,7 +13,7 @@ export interface AIAnalysisResult {
 
 export class AIService {
   private genAI: GoogleGenerativeAI;
-  private model: any;
+  private model: GenerativeModel;
 
   constructor() {
     const apiKey = process.env.GEMINI_API_KEY;
@@ -25,7 +25,10 @@ export class AIService {
   }
 
   async analyzeContent(text: string): Promise<AIAnalysisResult | null> {
-    if (!process.env.GEMINI_API_KEY) return null;
+    if (!process.env.GEMINI_API_KEY) {
+        logger.warn('Skipping AI analysis: GEMINI_API_KEY not set');
+        return null;
+    }
 
     try {
       const prompt = `
@@ -49,7 +52,7 @@ export class AIService {
       const jsonString = textResponse.replace(/```json\n?|\n?```/g, '').trim();
       
       return JSON.parse(jsonString) as AIAnalysisResult;
-    } catch (error) {
+    } catch (error: unknown) {
       logger.error('AI Analysis failed', error);
       return null;
     }

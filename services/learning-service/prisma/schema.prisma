@@ -1,6 +1,7 @@
 generator client {
   provider = "prisma-client-js"
   output   = "./generated"
+  previewFeatures = ["fullTextSearch"]
 }
 
 datasource db {
@@ -9,17 +10,32 @@ datasource db {
 }
 
 model Topic {
-  id        String   @id @default(uuid())
-  name      String
-  userId    String
-  parentId  String?
+  id               String   @id @default(uuid())
+  name             String
+  userId           String
+  parentId         String?
+  moduleId         String?
+  difficulty       Int      @default(1)
+  estimatedMinutes Int      @default(0)
+  bloomsLevel      String   @default("remember")
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  deletedAt DateTime?
+  archivedAt DateTime?
+
+  module           Module?            @relation(fields: [moduleId], references: [id])
+  flashcards       Flashcard[]
+  reviewLogs       ReviewLog[]
+  subtopics        Subtopic[]
+  
+  prerequisites    TopicDependency[]  @relation("Prerequisites")
+  dependents       TopicDependency[]  @relation("Dependents")
 }
 
 model Syllabus {
   id        String   @id @default(uuid())
-  topicId   String
+  topicId   String   @unique
   content   String   // JSON structure of the syllabus
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -36,6 +52,30 @@ model Flashcard {
   difficulty String  @default("NORMAL") // EASY, NORMAL, HARD
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  deletedAt DateTime?
+  archivedAt DateTime?
+
+  topic      Topic       @relation(fields: [topicId], references: [id])
+  reviewLogs ReviewLog[]
+
+  @@index([topicId, nextReview])
+}
+
+model ReviewLog {
+  id          String   @id @default(uuid())
+  userId      String
+  flashcardId String
+  topicId     String
+  quality     Int      // 0-5
+  easeFactor  Float
+  interval    Int
+  reviewedAt  DateTime @default(now())
+
+  flashcard   Flashcard @relation(fields: [flashcardId], references: [id])
+  topic       Topic     @relation(fields: [topicId], references: [id])
+
+  @@index([userId, reviewedAt])
+  @@index([topicId])
 }
 
 model InterventionRule {
@@ -190,6 +230,7 @@ model FocusSession {
   @@index([userId])
   @@index([userId, status])
   @@index([startedAt])
+  @@index([userId, startedAt])
 }
 
 model FocusInterruption {
@@ -203,3 +244,344 @@ model FocusInterruption {
   @@index([sessionId])
   @@index([timestamp])
 }
+
+model FocusMode {
+  id                String   @id @default(uuid())
+  userId            String
+  name              String   // e.g., "Deep Work", "Study Time"
+  description       String?
+  duration          Int      // Duration in minutes
+  blockedApps       String   // JSON array of app identifiers
+  allowedApps       String   // JSON array of app identifiers
+  isActive          Boolean  @default(false)
+  startedAt         DateTime?
+  endedAt           DateTime?
+  totalSessions     Int      @default(0)
+  totalMinutes      Int      @default(0)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@index([userId])
+  @@index([createdAt])
+}
+
+model ScreenUsageLog {
+  id          String   @id @default(uuid())
+  userId      String
+  appName     String   // e.g., "Instagram", "Twitter", "VSCode"
+  category    String?  // SOCIAL_MEDIA, PRODUCTIVITY, ENTERTAINMENT
+  duration    Int      // Seconds
+  timestamp   DateTime @default(now())
+  metadata    String?  // JSON: additional context (scroll distance, interactions)
+  createdAt   DateTime @default(now())
+
+  @@index([userId, timestamp])
+  @@index([userId, appName])
+  @@index([timestamp])
+}
+
+model DoomscrollEvent {
+  id                String   @id @default(uuid())
+  userId            String
+  appName           String
+  startedAt         DateTime
+  endedAt           DateTime?
+  duration          Int?     // Minutes
+  scrollDistance    Float?   // Estimated pixels scrolled
+  itemsViewed       Int?     // Estimated content items
+  interventionId    String?  // If intervention was triggered
+  wasInterrupted    Boolean  @default(false)
+  createdAt         DateTime @default(now())
+
+  @@index([userId])
+  @@index([userId, startedAt])
+}
+
+model InterventionSuccess {
+  id                String   @id @default(uuid())
+  userId            String
+  ruleId            String   // Reference to InterventionRule
+  triggeredAt       DateTime @default(now())
+  wasSuccessful     Boolean  @default(false)
+  userAction        String?  // ACCEPTED, DISMISSED, IGNORED
+  timeToAction      Int?     // Seconds until user responded
+  contextBefore     String?  // JSON: state before intervention
+  contextAfter      String?  // JSON: state after intervention
+  createdAt         DateTime @default(now())
+
+  @@index([userId])
+  @@index([ruleId])
+  @@index([userId, triggeredAt])
+  @@index([createdAt])
+}
+
+model ScreenTimeEvent {
+  id              String   @id @default(uuid())
+  userId          String
+  timestamp       DateTime @default(now())
+  appPackageName  String
+  sessionDuration Int      // Milliseconds
+  interactionCount Int
+  scrollDistance  Int
+  contextSwitches Int
+  timeOfDay       String   // MORNING, AFTERNOON, EVENING, NIGHT
+  dayType         String   // WEEKDAY, WEEKEND
+  batteryLevel    Int
+  location        String?
+  createdAt       DateTime @default(now())
+
+
+  @@index([userId, timestamp])
+  @@index([timestamp])
+}
+
+model Module {
+  id             String   @id @default(uuid())
+  curriculumId   String
+  name           String
+  order          Int
+  estimatedHours Float
+  
+  curriculum     Curriculum @relation(fields: [curriculumId], references: [id])
+  topics         Topic[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Subtopic {
+  id               String   @id @default(uuid())
+  topicId          String
+  name             String
+  order            Int
+  estimatedMinutes Int
+  keyPoints        String   
+  
+  topic            Topic    @relation(fields: [topicId], references: [id])
+  
+  userMastery      UserMastery[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model TopicDependency {
+  id          String   @id @default(uuid())
+  fromTopicId String
+  toTopicId   String
+  strength    String   @default("REQUIRED")
+
+  fromTopic   Topic    @relation("Dependents", fields: [fromTopicId], references: [id])
+  toTopic     Topic    @relation("Prerequisites", fields: [toTopicId], references: [id])
+
+  createdAt   DateTime @default(now())
+
+  @@unique([fromTopicId, toTopicId])
+  @@index([fromTopicId])
+  @@index([toTopicId])
+}
+
+model Curriculum {
+  id        String   @id @default(uuid())
+  userId    String
+  subject   String
+  examType  String   @default("GENERAL")
+  metadata  String?  
+  
+  modules   Module[]
+  studyPlans StudyPlan[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model StudyPlan {
+  id           String   @id @default(uuid())
+  userId       String
+  curriculumId String
+  startDate    DateTime
+  targetDate   DateTime
+  schedule     String   
+  status       String   @default("ACTIVE")
+
+  curriculum   Curriculum @relation(fields: [curriculumId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model DailyContent {
+  id        String   @id @default(uuid())
+  userId    String
+  date      DateTime
+  sections  String   
+  metrics   String?  
+  
+  createdAt DateTime @default(now())
+  
+  @@unique([userId, date])
+  @@index([userId])
+}
+
+model Quiz {
+  id           String   @id @default(uuid())
+  topicId      String
+  bloomsLevel  String?
+  difficulty   Int      @default(1)
+  totalPoints  Int      @default(0)
+  
+  questions    QuizQuestion[]
+  
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model QuizQuestion {
+  id              String   @id @default(uuid())
+  quizId          String
+  question        String
+  type            String   @default("MCQ")
+  options         String   
+  correctAnswer   String   
+  explanation     String?  
+  difficulty      Int
+  bloomsLevel     String
+  
+  quiz            Quiz     @relation(fields: [quizId], references: [id])
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+model UserMastery {
+  id          String   @id @default(uuid())
+  userId      String
+  subtopicId  String
+  level       Int      @default(0)
+  confidence  Float    @default(0.0)
+  lastPracticed DateTime?
+  
+  // Spaced Repetition / Retention
+  retention            String?   // JSON: current retention probability curves
+  difficultyProgression String?  // JSON: history of difficulty adjustments
+  metrics              String?   // JSON: fine-grained metrics
+  lastReviewDate       DateTime?
+  nextReviewDate       DateTime? 
+  
+  subtopic    Subtopic @relation(fields: [subtopicId], references: [id])
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([userId, subtopicId])
+  @@index([userId])
+  @@index([nextReviewDate]) // For scheduler
+}
+
+model OfflineSyncLog {
+  id              String   @id @default(uuid())
+  userId          String
+  entityType      String   // REVIEW_LOG, QUIZ_ATTEMPT, PROGRESS
+  entityId        String
+  action          String   // CREATE, UPDATE, DELETE
+  clientTimestamp DateTime
+  serverTimestamp DateTime @default(now())
+  status          String   @default("PROCESSED") // PROCESSED, CONFLICT, ERROR
+  metadata        String?  // JSON
+
+  @@index([userId, clientTimestamp])
+  @@index([userId, status])
+}
+
+// --- PART 5: Mock Test Competitions & Anti-Cheat ---
+
+model MockTest {
+  id             String   @id @default(uuid())
+  userId         String
+  topicId        String
+  difficulty     String   // EASY, MEDIUM, HARD
+  questionCount  Int
+  timeLimit      Int      // minutes
+  questions      String   // JSON (encrypted)
+  integrityHash  String
+  status         String   @default("ACTIVE") // ACTIVE, COMPLETED, INVALID
+  createdAt      DateTime @default(now())
+  expiresAt      DateTime
+  
+  result         MockTestResult?
+  
+  @@index([userId])
+  @@index([topicId])
+  @@index([status])
+}
+
+model MockTestResult {
+  id             String   @id @default(uuid())
+  testId         String   @unique
+  userId         String
+  topicId        String
+  score          Float    // IRT-weighted score
+  percentile     Float
+  globalRank     Int?
+  integrityScore Float    @default(1.0) // 1.0 = clean
+  answers        String   // JSON
+  metadata       String?  // {tabSwitches, flags, violations}
+  submittedAt    DateTime @default(now())
+  
+  test           MockTest @relation(fields: [testId], references: [id])
+  
+  @@index([topicId, score])
+  @@index([userId])
+}
+
+model MockTestLeaderboard {
+  id          String   @id @default(uuid())
+  topicId     String
+  anonId      String   // Hash of userId for privacy
+  score       Float
+  percentile  Float
+  rank        Int
+  submittedAt DateTime @default(now())
+  
+  @@index([topicId, score])
+  @@index([topicId, rank])
+}
+
+// --- PART 5: Feed Engine & Recommendations ---
+
+model FeedItem {
+  id          String   @id @default(uuid())
+  creatorId   String
+  itemType    String   // CHALLENGE_RESULT, MOCK_TEST, ACHIEVEMENT, TIP, QUESTION
+  content     String   // JSON
+  topics      String[] // Array of topic IDs
+  createdAt   DateTime @default(now())
+  
+  impressions FeedImpression[]
+  
+  @@index([createdAt])
+  @@index([itemType])
+}
+
+model UserFeedState {
+  userId            String   @id
+  lastSeenItemId    String?
+  dismissedTopics   String[] 
+  feedPreferences   String   // JSON: {showChallenges: true, ...}
+  updatedAt         DateTime @updatedAt
+}
+
+model FeedImpression {
+  id         String   @id @default(uuid())
+  userId     String
+  itemId     String
+  action     String   // VIEWED, CLICKED, DISMISSED
+  timestamp  DateTime @default(now())
+  
+  item       FeedItem @relation(fields: [itemId], references: [id])
+  
+  @@index([userId, timestamp])
+  @@index([itemId])
+}
+
+

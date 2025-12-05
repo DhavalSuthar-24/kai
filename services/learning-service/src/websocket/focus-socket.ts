@@ -9,13 +9,8 @@ const logger = createLogger('focus-socket');
 // Store active timers per session
 const activeTimers = new Map<string, PomodoroTimer>();
 
-export function initializeFocusSocket(httpServer: HTTPServer) {
-  const io = new SocketServer(httpServer, {
-    cors: {
-      origin: '*', // Configure appropriately for production
-      methods: ['GET', 'POST']
-    }
-  });
+export function initializeFocusSocket(io: SocketServer) {
+  // Logic now uses passed io instance instead of creating new one
 
   io.on('connection', (socket) => {
     logger.info(`Client connected: ${socket.id}`);

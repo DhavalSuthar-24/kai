@@ -24,7 +24,7 @@ export class AchievementService {
     logger.info('Achievements seeded');
   }
 
-  async checkAchievements(userId: string, type: string, data: any) {
+  async checkAchievements(userId: string, type: string, data: Record<string, unknown>) {
     try {
       // Fetch user stats
       const progress = await prisma.userProgress.findUnique({ where: { userId } });
@@ -70,14 +70,17 @@ export class AchievementService {
 
       logger.info(`Achievement unlocked: ${achievementId} for user ${userId}`);
       
+      // Fetch achievement details for event
+      const achievement = await prisma.achievement.findUnique({ where: { id: achievementId } });
+
       // Publish Achievement Unlocked Event
       await kafkaClient.send('gamification-events', [{
         type: 'ACHIEVEMENT_UNLOCKED',
         userId,
         data: {
           achievementId,
-          name: existing ? (existing as any).achievement.name : achievementId,
-          points: existing ? (existing as any).achievement.points : 0
+          name: achievement?.name || achievementId,
+          points: achievement?.points || 0
         }
       }]);
 

@@ -1,5 +1,6 @@
 import prisma from '../prisma.ts';
 import { createLogger } from '@shared/index.ts';
+import kafkaClient from '../kafka.ts';
 
 const logger = createLogger('challenge-service');
 
@@ -90,7 +91,25 @@ export class ChallengeService {
 
         if (isCompleted) {
           logger.info(`User ${userId} completed challenge ${p.challenge.id}`);
-          // TODO: Award points/badge
+          
+          // Award points (e.g., 100 points for completion)
+          const REWARD_POINTS = 100;
+          await prisma.userProgress.upsert({
+            where: { userId },
+            create: { userId, points: REWARD_POINTS, level: 1, streak: 0 },
+            update: { points: { increment: REWARD_POINTS } }
+          });
+
+          // Emit event
+          await kafkaClient.send('gamification-events', [{
+            type: 'CHALLENGE_COMPLETED',
+            data: {
+              userId,
+              challengeId: p.challenge.id,
+              pointsAwarded: REWARD_POINTS,
+              timestamp: new Date().toISOString()
+            }
+          }]);
         }
       }
     } catch (error) {

@@ -9,7 +9,9 @@ import {
   createCorsMiddleware,
   createHelmetMiddleware,
   createRateLimiter,
-  errorHandler 
+  errorHandler,
+  initializeSentry,
+  createMetricsCollector
 } from '@shared/index.ts';
 import kafkaClient from './kafka.ts';
 import { handleUserCreated } from './consumers/user-created.ts';
@@ -23,10 +25,14 @@ import { handleGamificationEvents } from './consumers/gamification-consumer.ts';
 import { startWeeklyInsightsScheduler } from './schedulers/weekly-insights.ts';
 import { startRetryProcessor } from './schedulers/retry-processor.ts';
 import { startCleanupScheduler } from './schedulers/cleanup-scheduler.ts';
-import deviceTokensRoutes from './routes/device-tokens.routes.ts';
+import deviceTokenRoutes from './routes/device-tokens.routes.ts';
 import preferencesRoutes from './routes/preferences.routes.ts';
+import notificationRoutes from './routes/notification.routes.ts';
 
 const logger = createLogger('notification-service');
+
+// Initialize Sentry for error tracking
+initializeSentry({ serviceName: 'notification-service' });
 
 // Validate environment configuration on startup
 try {
@@ -40,11 +46,18 @@ try {
 const app = express();
 const PORT = process.env.PORT || 3005;
 
+// Metrics collector
+const metrics = createMetricsCollector('notification_service');
+
 // Security middleware
 app.use(correlationIdMiddleware as any);
 app.use(createHelmetMiddleware());
 app.use(createCorsMiddleware());
 app.use(express.json());
+
+// Metrics middleware (before routes)
+app.use(metrics.middleware() as any);
+
 app.use(createRateLimiter() as any);
 
 // Request logger
@@ -69,17 +82,31 @@ const healthCheckHandler = await createHealthCheckHandler('notification-service'
 
 app.get('/health', healthCheckHandler as any);
 
+// Metrics endpoint
+app.get('/metrics', async (req, res) => {
+  res.set('Content-Type', metrics.registry.contentType);
+  res.end(await metrics.getMetrics());
+});
+
 // API Routes
-app.use('/device-tokens', deviceTokensRoutes);
+app.use('/device-tokens', deviceTokenRoutes);
+app.use('/notifications', notificationRoutes);
 app.use('/preferences', preferencesRoutes);
 
 // Error handler must be registered after all routes
 app.use(errorHandler as any);
 
+import { handleVerificationRequest } from './consumers/verification-consumer.ts';
+import { handlePasswordResetRequest } from './consumers/password-reset-consumer.ts';
+
 const startServer = async () => {
   try {
     // Subscribe to Kafka topics
-    await kafkaClient.consume('notification-group', 'user-events', handleUserCreated).catch((err: any) => {
+    await kafkaClient.consume('notification-group', 'user-events', async (message: any) => {
+      await handleUserCreated(message);
+      await handleVerificationRequest(message);
+      await handlePasswordResetRequest(message);
+    }).catch((err: any) => {
       logger.error('Failed to subscribe to user-events', err);
     });
 

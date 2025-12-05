@@ -1,0 +1,49 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: kai-ingress
+  namespace: kai
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /$2
+    nginx.ingress.kubernetes.io/use-regex: "true"
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: api.kai.com
+      http:
+        paths:
+          - path: /auth(/|$)(.*)
+            pathType: Prefix
+            backend:
+              service:
+                name: auth-service
+                port:
+                  number: 80
+          - path: /content(/|$)(.*)
+            pathType: Prefix
+            backend:
+              service:
+                name: content-service
+                port:
+                  number: 80
+          - path: /learning(/|$)(.*)
+            pathType: Prefix
+            backend:
+              service:
+                name: learning-service
+                port:
+                  number: 80
+          - path: /gamification(/|$)(.*)
+            pathType: Prefix
+            backend:
+              service:
+                name: gamification-service
+                port:
+                  number: 80
+          - path: /notifications(/|$)(.*)
+            pathType: Prefix
+            backend:
+              service:
+                name: notification-service
+                port:
+                  number: 80

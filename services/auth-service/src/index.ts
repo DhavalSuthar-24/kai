@@ -2,6 +2,7 @@ import dotenv from 'dotenv';
 dotenv.config();
 
 import app from './app.ts';
+import express from 'express';
 import { 
   createLogger, 
   validateConfig, 
@@ -15,11 +16,18 @@ import {
 } from '@shared/index.ts';
 import kafkaClient from './kafka.ts';
 import authRoutes from './routes/auth.routes.ts';
+import privacyRoutes from './routes/privacy.routes.ts';
+
+import { configurePassport } from './passport.ts';
+import passport from 'passport';
 
 const logger = createLogger('auth-service');
 
 // Initialize Sentry for error tracking
 initializeSentry({ serviceName: 'auth-service' });
+
+// Configure Passport
+configurePassport();
 
 // Validate environment configuration on startup
 try {
@@ -39,7 +47,8 @@ const metrics = createMetricsCollector('auth_service');
 app.use(correlationIdMiddleware);
 app.use(createHelmetMiddleware());
 app.use(createCorsMiddleware());
-
+app.use(express.json());
+app.use(passport.initialize());
 // Metrics middleware (before routes)
 app.use(metrics.middleware());
 
@@ -56,6 +65,7 @@ app.use((req, res, next) => {
 });
 
 app.use('/auth', authRoutes);
+app.use('/privacy', privacyRoutes);
 
 // Health check endpoint
 import prisma from './prisma.ts';

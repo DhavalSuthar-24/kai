@@ -1,5 +1,6 @@
 import prisma from '../prisma.ts';
 import { createLogger } from '@shared/index.ts';
+import kafkaClient from '../kafka.ts';
 import { startOfDay, endOfDay, subMonths, subYears } from 'date-fns';
 
 const logger = createLogger('memory-service');
@@ -50,6 +51,19 @@ export class MemoryService {
       });
 
       logger.info(`Generated daily recap memory: ${memory.id}`);
+
+      // Emit MEMORY_CREATED event
+      await kafkaClient.send('memory-events', [{
+        type: 'MEMORY_CREATED',
+        data: {
+          userId,
+          memoryId: memory.id,
+          title: memory.title,
+          type: memory.memoryType,
+          timestamp: new Date().toISOString()
+        }
+      }]);
+
       return memory;
 
     } catch (error) {

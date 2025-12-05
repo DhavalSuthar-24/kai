@@ -1,5 +1,7 @@
-import { KafkaClient } from '@shared/index.ts';
+import { KafkaClient, getConfig } from '@shared/index.ts';
 
-const kafkaClient = new KafkaClient('gamification-service', ['localhost:9092']);
+const config = getConfig();
+
+const kafkaClient = new KafkaClient('gamification-service', [(config as any).KAFKA_BROKER || process.env.KAFKA_BROKER || 'localhost:9092']);
 
 export default kafkaClient;

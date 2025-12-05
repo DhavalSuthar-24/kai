@@ -36,10 +36,15 @@ interface PushJobData {
   data?: Record<string, string>;
   imageUrl?: string;
   templateId?: string;
+  actionButtons?: Array<{
+    title: string;
+    action: string;
+    icon?: string;
+  }>;
 }
 
 const processPushJob = async (job: Job<PushJobData>) => {
-  const { userId, title, body, type, data, imageUrl, templateId } = job.data;
+  const { userId, title, body, type, data, imageUrl, templateId, actionButtons } = job.data;
   
   logger.info(`Processing push job ${job.id}`, { userId, title, type });
 
@@ -100,6 +105,7 @@ const processPushJob = async (job: Job<PushJobData>) => {
       body,
       data,
       imageUrl,
+      actionButtons,
     });
 
     // 6. Handle invalid tokens

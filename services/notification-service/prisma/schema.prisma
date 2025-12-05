@@ -23,6 +23,7 @@ model NotificationPreference {
   // Channel preferences
   emailEnabled           Boolean  @default(true)  // Global email toggle
   pushEnabled            Boolean  @default(true)  // Global push toggle
+  smsEnabled             Boolean  @default(true)  // Global SMS toggle
   
   createdAt              DateTime @default(now())
   updatedAt              DateTime @updatedAt

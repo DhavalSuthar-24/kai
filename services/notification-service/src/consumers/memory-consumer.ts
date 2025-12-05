@@ -6,7 +6,19 @@ import { NotificationType } from '../types/notifications.ts';
 
 const logger = createLogger('memory-consumer');
 
-export const handleMemory = async (message: any) => {
+interface MemoryEvent {
+  type: 'MEMORY_OF_DAY';
+  data: {
+    userId: string;
+    userName?: string;
+    email: string;
+    memoryTitle: string;
+    memoryDescription: string;
+    memoryDate: string;
+  };
+}
+
+export const handleMemory = async (message: MemoryEvent) => {
   try {
     const { type, data } = message;
 

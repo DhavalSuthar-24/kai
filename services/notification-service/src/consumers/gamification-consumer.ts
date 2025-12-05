@@ -7,7 +7,17 @@ import { NotificationType } from '../types/notifications.ts';
 
 const logger = createLogger('gamification-consumer');
 
-export const handleGamificationEvents = async (message: any) => {
+interface GamificationEvent {
+  type: 'LEVEL_UP' | 'ACHIEVEMENT_UNLOCKED';
+  userId: string;
+  data: {
+    level?: number;
+    name?: string;
+    achievementId?: string;
+  };
+}
+
+export const handleGamificationEvents = async (message: GamificationEvent) => {
   try {
     const { type, userId, data } = message;
     logger.info(`Processing gamification event: ${type}`, { userId });
@@ -26,9 +36,7 @@ export const handleGamificationEvents = async (message: any) => {
       });
 
       // Email (Optional for every level, maybe only milestones? For now, send it)
-      // We don't have a specific template for Level Up yet, let's use a generic one or skip email for now to avoid spam.
-      // Actually, let's skip email for Level Up unless it's a major milestone (e.g. every 5 levels).
-      // For simplicity in this task, I'll skip email for Level Up to avoid cluttering templates.
+      // We don't have a specific template for Level Up yet, let's use a generic one or skip email for now to avoid cluttering templates.
       
     } else if (type === 'ACHIEVEMENT_UNLOCKED') {
       // Push Notification

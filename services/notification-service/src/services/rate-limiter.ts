@@ -23,7 +23,7 @@ export class RateLimiter {
    */
   async checkRateLimit(
     userId: string,
-    channel: 'EMAIL' | 'PUSH'
+    channel: 'EMAIL' | 'PUSH' | 'SMS'
   ): Promise<{ allowed: boolean; remaining: number; resetAt: Date }> {
     const limit = channel === 'EMAIL' ? this.config.emailPerHour : this.config.pushPerHour;
     const key = `ratelimit:${channel.toLowerCase()}:${userId}`;
